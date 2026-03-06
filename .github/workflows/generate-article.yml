@@ -118,7 +118,6 @@ jobs:
 
       - name: Generate and publish article
         env:
-		  # 【关键】告诉 Python 所有的网络请求都走本机的 1080 端口（即通过 SSH 隧道转发给你的服务器）
           http_proxy: socks5h://127.0.0.1:1080
           https_proxy: socks5h://127.0.0.1:1080
           all_proxy: socks5h://127.0.0.1:1080
@@ -182,4 +181,5 @@ jobs:
               state: 'closed',
               labels: ['generate', 'done']
             });
+
 
