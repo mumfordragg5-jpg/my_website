@@ -69,7 +69,16 @@
       <div class="card-title">📝 提交话题</div>
       <form id="articleForm" onsubmit="submitArticle(event)">
         <div class="form-row">
-          <label>新闻标题（英文或中文）</label>
+          <label>生成模式</label>
+          <div class="tag-grid">
+            <input type="radio" class="tag-check" id="mode-headline" name="mode" value="headline" checked>
+            <label class="tag-label" for="mode-headline">📰 标题模式（粘贴英文标题）</label>
+            <input type="radio" class="tag-check" id="mode-topic" name="mode" value="topic">
+            <label class="tag-label" for="mode-topic">🔍 话题模式（自动抓新闻）</label>
+          </div>
+        </div>
+        <div class="form-row">
+          <label id="inputLabel">新闻标题（英文或中文）</label>
           <input type="text" id="headline" name="headline" placeholder="粘贴你看到的新闻标题..." required>
         </div>
         <div class="form-row-inline">
@@ -150,19 +159,41 @@
   <script>
     let lastArticleData = null;
 
+    document.querySelectorAll('input[name="mode"]').forEach(radio => {
+      radio.addEventListener('change', function() {
+        const label = document.getElementById('inputLabel');
+        const input = document.getElementById('headline');
+        if (this.value === 'topic') {
+          label.textContent = '话题关键词（中英文均可）';
+          input.placeholder = '如：美联储加息、特朗普关税、日元贬值...';
+        } else {
+          label.textContent = '新闻标题（英文或中文）';
+          input.placeholder = '粘贴你看到的新闻标题...';
+        }
+      });
+    });
+
     async function submitArticle(e) {
       e.preventDefault();
 
       const headline = document.getElementById('headline').value.trim();
       if (!headline) return;
 
+      const mode = document.querySelector('input[name="mode"]:checked').value;
+
       const formData = {
-        headline: headline,
+        mode: mode,
         source: document.getElementById('source').value,
         extra_info: document.getElementById('extra_info').value.trim(),
         tags: Array.from(document.querySelectorAll('input[name="tags"]:checked')).map(cb => cb.value),
         publish_to: document.getElementById('publish_to').value,
       };
+
+      if (mode === 'topic') {
+        formData.topic = headline;
+      } else {
+        formData.headline = headline;
+      }
 
       document.getElementById('submitBtn').disabled = true;
       document.getElementById('loadingCard').style.display = 'block';

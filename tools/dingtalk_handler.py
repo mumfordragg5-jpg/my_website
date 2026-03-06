@@ -56,6 +56,13 @@ def parse_dingtalk_message(data: dict) -> dict:
     source = "国际媒体"
     headline = text
 
+    is_topic = False
+    for prefix_key in ["话题", "话题:", "话题："]:
+        if headline.startswith(prefix_key):
+            headline = headline[len(prefix_key):].strip()
+            is_topic = True
+            break
+
     for prefix_key in ["写文章", "写一篇", "生成"]:
         if headline.startswith(prefix_key):
             headline = headline[len(prefix_key):].strip()
@@ -78,6 +85,7 @@ def parse_dingtalk_message(data: dict) -> dict:
         "source": source,
         "extra_info": extra_info,
         "sender": sender,
+        "is_topic": is_topic,
     }
 
 
