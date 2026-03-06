@@ -179,5 +179,5 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
               state: 'closed',
-              labels:['generate', 'done']
+              labels: ['generate', 'done']
             });
