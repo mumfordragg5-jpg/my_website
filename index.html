@@ -3,99 +3,190 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>我的观点 | 国际时事深度解读</title>
-  <meta name="description" content="深度解读国际时事，带你看透局势背后的利益博弈。">
+  <title>科技马前卒 | 国际财经深度解读</title>
+  <meta name="description" content="聚焦彭博社、华尔街日报、纽约时报、经济学人等国际主流财经媒体，用深度视角为中国读者解读全球财经大事。">
+  <meta property="og:title" content="科技马前卒 | 国际财经深度解读">
+  <meta property="og:description" content="帮中国人读懂西方财经头条">
+  <meta property="og:type" content="website">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✍</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏇</text></svg>">
 </head>
 <body>
   <!-- Header -->
   <header class="site-header">
     <nav class="nav-inner">
       <a href="index.html" class="site-logo">
-        <span class="logo-dot"></span>我的观点
+        <span class="logo-icon">🏇</span>科技马前卒
       </a>
-      <div style="display:flex;align-items:center;gap:20px;">
-        <ul class="nav-links">
-          <li><a href="index.html">首页</a></li>
+      <div class="nav-right">
+        <ul class="nav-links" id="navLinks">
+          <li><a href="index.html" class="nav-active">首页</a></li>
           <li><a href="#articles">文章</a></li>
           <li><a href="#about">关于</a></li>
         </ul>
         <button class="theme-toggle" id="themeToggle" aria-label="切换主题">🌙</button>
+        <button class="menu-toggle" id="menuToggle" aria-label="菜单">
+          <span></span><span></span><span></span>
+        </button>
       </div>
     </nav>
   </header>
 
   <!-- Hero -->
   <section class="hero">
-    <h1 class="hero-title">用深度视角，解读复杂世界</h1>
-    <p class="hero-subtitle">这里是我的个人写作空间。关注国际时事、地缘政治与全球经济，带你看透新闻背后的利益博弈。</p>
+    <div class="hero-badge">聚焦 Bloomberg / WSJ / NYT / Economist</div>
+    <h1 class="hero-title">帮中国人读懂<br>西方财经头条</h1>
+    <p class="hero-subtitle">每周精选国际主流财经媒体的重磅报道，用深度视角解读新闻背后的逻辑与博弈，让复杂的世界变得清晰。</p>
+    <div class="hero-stats">
+      <div class="stat-item">
+        <span class="stat-number" id="articleCount">2</span>
+        <span class="stat-label">篇深度文章</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-number">4</span>
+        <span class="stat-label">家信源媒体</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-number">8min</span>
+        <span class="stat-label">平均阅读</span>
+      </div>
+    </div>
   </section>
 
-  <!-- Articles -->
-  <div class="section-title" id="articles">最新文章</div>
-  <div class="article-grid">
+  <!-- Search & Filter -->
+  <div class="filter-bar" id="articles">
+    <div class="filter-inner">
+      <div class="filter-tags">
+        <button class="filter-btn active" data-tag="all">全部</button>
+        <button class="filter-btn" data-tag="market">📊 市场</button>
+        <button class="filter-btn" data-tag="hotspot">🔥 热点</button>
+        <button class="filter-btn" data-tag="china">🇨🇳 中国</button>
+        <button class="filter-btn" data-tag="geopolitics">🌍 地缘</button>
+        <button class="filter-btn" data-tag="energy">⚡ 能源</button>
+      </div>
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="搜索文章..." aria-label="搜索">
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+    </div>
+  </div>
 
-    <article class="article-card fade-in">
+  <!-- Articles -->
+  <div class="article-grid" id="articleGrid">
+
+    <article class="article-card fade-in" data-tags="market,china,geopolitics" data-title="中东打仗亚洲股市血流成河为什么A股反而成了避风港" data-search="A股 中东 伊朗 KOSPI 韩国 日本 股市 避风港 油价">
       <a href="articles/china-markets-iran-turmoil.html" class="card-cover">
         <img src="images/china-markets-cover.svg" alt="A股在中东危机中的表现" width="1200" height="630" loading="lazy">
       </a>
-      <span class="card-tag">📊 市场</span>
-      <h2 class="card-title">
-        <a href="articles/china-markets-iran-turmoil.html">中东打仗，亚洲股市血流成河，为什么A股反而成了"避风港"？</a>
-      </h2>
-      <p class="card-excerpt">
-        韩国KOSPI暴跌11%，日经跌3.9%，泰国崩8%，上证指数只跌了1.4%。在亚洲一片哀鸿遍野中，A股凭什么成了相对最稳的那一个？
-      </p>
-      <div class="card-meta">
-        <span>📅 2026-03-06</span>
-        <span>📖 约 8 分钟</span>
-        <span>📈 A股 · 地缘政治</span>
+      <div class="card-body">
+        <div class="card-tags-row">
+          <span class="card-tag">📊 市场</span>
+          <span class="card-tag tag-secondary">🇨🇳 中国</span>
+        </div>
+        <h2 class="card-title">
+          <a href="articles/china-markets-iran-turmoil.html">中东打仗，亚洲股市血流成河，为什么A股反而成了"避风港"？</a>
+        </h2>
+        <p class="card-excerpt">
+          韩国KOSPI暴跌11%，日经跌3.9%，泰国崩8%，上证指数只跌了1.4%。在亚洲一片哀鸿遍野中，A股凭什么成了相对最稳的那一个？
+        </p>
+        <div class="card-footer">
+          <div class="card-meta">
+            <span>2026-03-06</span>
+            <span>约 8 分钟</span>
+          </div>
+          <span class="card-source">Bloomberg</span>
+        </div>
       </div>
     </article>
 
-    <article class="article-card fade-in">
+    <article class="article-card fade-in" data-tags="hotspot,geopolitics,energy" data-title="金融核弹来了阿联酋考虑冻结伊朗数十亿资产中东变局远比你想象的猛烈" data-search="阿联酋 伊朗 资产冻结 迪拜 制裁 金融 中东 革命卫队 油价">
       <a href="articles/uae-iran-asset-freeze.html" class="card-cover">
         <img src="images/uae-iran-cover.svg" alt="阿联酋考虑冻结伊朗资产" width="1200" height="630" loading="lazy">
       </a>
-      <span class="card-tag">🔥 热点</span>
-      <h2 class="card-title">
-        <a href="articles/uae-iran-asset-freeze.html">金融核弹来了？阿联酋考虑冻结伊朗数十亿资产，中东变局远比你想象的猛烈</a>
-      </h2>
-      <p class="card-excerpt">
-        一场没有硝烟的战争，可能比导弹更致命。阿联酋正在考虑冻结伊朗在其境内的数十亿美元资产，如果这根"金融氧气管"被拔掉，德黑兰将面临怎样的困境？
-      </p>
-      <div class="card-meta">
-        <span>📅 2026-03-06</span>
-        <span>📖 约 8 分钟</span>
-        <span>🌍 国际局势</span>
+      <div class="card-body">
+        <div class="card-tags-row">
+          <span class="card-tag">🔥 热点</span>
+          <span class="card-tag tag-secondary">🌍 地缘</span>
+        </div>
+        <h2 class="card-title">
+          <a href="articles/uae-iran-asset-freeze.html">金融核弹来了？阿联酋考虑冻结伊朗数十亿资产，中东变局远比你想象的猛烈</a>
+        </h2>
+        <p class="card-excerpt">
+          一场没有硝烟的战争，可能比导弹更致命。阿联酋正在考虑冻结伊朗在其境内的数十亿美元资产，如果这根"金融氧气管"被拔掉，德黑兰将面临怎样的困境？
+        </p>
+        <div class="card-footer">
+          <div class="card-meta">
+            <span>2026-03-06</span>
+            <span>约 8 分钟</span>
+          </div>
+          <span class="card-source">WSJ</span>
+        </div>
       </div>
     </article>
 
   </div>
 
-  <!-- About -->
-  <div id="about" style="max-width:var(--article-width);margin:0 auto;padding:0 24px 80px;">
-    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:40px;text-align:center;">
-      <h2 style="font-size:1.4rem;font-weight:700;margin-bottom:12px;">关于这个站点</h2>
-      <p style="color:var(--text-secondary);line-height:1.8;max-width:480px;margin:0 auto;">
-        这是我的个人写作空间。我相信，理解这个世界需要深度思考，而非碎片化的信息。在这里，我会持续分享对国际局势的观察与分析。欢迎常来坐坐。
-      </p>
-    </div>
+  <!-- No Results -->
+  <div class="no-results" id="noResults" style="display:none;">
+    <p>没有找到匹配的文章</p>
+    <button class="filter-btn" onclick="resetFilters()">清除筛选</button>
   </div>
+
+  <!-- About -->
+  <section class="about-section" id="about">
+    <div class="about-inner">
+      <div class="about-content">
+        <h2 class="about-title">关于 · 科技马前卒</h2>
+        <p class="about-text">
+          我是科技马前卒的主理人。在信息爆炸的时代，真正有价值的不是新闻本身，而是<strong>对新闻的理解</strong>。
+        </p>
+        <p class="about-text">
+          我每天阅读彭博社、华尔街日报、纽约时报、经济学人等国际主流财经媒体的报道，筛选出最值得中国读者关注的内容，用深度分析和独立观点，帮你看透新闻背后的利益博弈。
+        </p>
+        <div class="about-sources">
+          <span class="source-badge">Bloomberg</span>
+          <span class="source-badge">Wall Street Journal</span>
+          <span class="source-badge">New York Times</span>
+          <span class="source-badge">The Economist</span>
+        </div>
+        <p class="about-text">
+          这个网站是文章的长期归档。更多内容，欢迎关注我的微信公众号。
+        </p>
+      </div>
+      <div class="about-card">
+        <div class="wechat-card">
+          <div class="wechat-header">
+            <span class="wechat-icon">💬</span>
+            <span>微信公众号</span>
+          </div>
+          <div class="wechat-name">科技马前卒</div>
+          <p class="wechat-desc">国际财经深度解读<br>帮中国人读懂西方财经头条</p>
+          <div class="wechat-search-hint">
+            微信搜索「科技马前卒」关注
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <!-- Footer -->
   <footer class="site-footer">
     <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="logo-icon">🏇</span>
+        <span>科技马前卒</span>
+      </div>
       <ul class="footer-links">
         <li><a href="index.html">首页</a></li>
         <li><a href="#articles">文章</a></li>
         <li><a href="#about">关于</a></li>
       </ul>
-      <p>&copy; 2026 我的观点 · 用深度视角，解读复杂世界</p>
+      <p class="footer-copy">&copy; 2026 科技马前卒 · 帮中国人读懂西方财经头条</p>
     </div>
   </footer>
 
