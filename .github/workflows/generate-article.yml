@@ -69,7 +69,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests openai pysocks
+        run: pip install requests openai pysocks "httpx[socks]"
 
       - name: Determine topic
         id: topic
@@ -181,5 +181,6 @@ jobs:
               state: 'closed',
               labels: ['generate', 'done']
             });
+
 
 
