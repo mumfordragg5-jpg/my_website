@@ -201,10 +201,7 @@ img { max-width: 100%; height: auto; }
   line-height: 1.25;
   letter-spacing: -0.03em;
   margin-bottom: 20px;
-  background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text-primary);
 }
 
 .hero-subtitle {
@@ -647,10 +644,19 @@ img { max-width: 100%; height: auto; }
 }
 
 .about-inner {
-  display: grid;
-  grid-template-columns: 1fr 320px;
+  display: flex;
   gap: 40px;
-  align-items: start;
+  align-items: flex-start;
+}
+
+.about-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.about-card {
+  flex-shrink: 0;
+  width: 300px;
 }
 
 .about-title {
@@ -691,9 +697,9 @@ img { max-width: 100%; height: auto; }
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 32px;
+  padding: 28px;
   text-align: center;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 }
 
 .wechat-header {
@@ -813,8 +819,8 @@ img { max-width: 100%; height: auto; }
   .article-title { font-size: 1.6rem; }
   .article-content { font-size: 1rem; }
   .article-content h2 { font-size: 1.25rem; }
-  .about-inner { grid-template-columns: 1fr; }
-  .about-card { order: -1; }
+  .about-inner { flex-direction: column; }
+  .about-card { width: 100%; order: -1; }
   .nav-inner { padding: 0 16px; }
   .nav-links { display: none; }
   .menu-toggle { display: flex; }
