@@ -43,7 +43,7 @@ on:
 
   # Issue 触发：创建带 "generate" 标签的 Issue
   issues:
-    types: [labeled]
+    types:[labeled]
 
 permissions:
   contents: write
@@ -68,14 +68,14 @@ jobs:
         with:
           python-version: '3.11'
 
-      # 【修改 1】：增加 pysocks 依赖，使得 Python requests 能识别 socks5 代理
       - name: Install dependencies
+        # 【关键】这里必须安装 pysocks，否则 Python 的 requests 无法使用 socks5 代理
         run: pip install requests openai pysocks
 
       - name: Determine topic
         id: topic
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if[ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TOPIC="${{ github.event.inputs.topic }}"
             SOURCE="${{ github.event.inputs.source }}"
             PUB_WX="${{ github.event.inputs.publish_wx }}"
@@ -97,7 +97,6 @@ jobs:
           echo "pub_gh=$PUB_GH" >> $GITHUB_OUTPUT
           echo "话题: $TOPIC / 来源: $SOURCE"
 
-      # 【新增 Step】：连接你的 14.103.xx.xx 服务器，建立后台 SOCKS5 代理隧道
       - name: Setup SSH Proxy Tunnel
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
@@ -105,21 +104,21 @@ jobs:
           SERVER_USER: ${{ secrets.SERVER_USER }}
         run: |
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          # 将你的服务器加入 known_hosts 避免第一次连接时的确认提示
-          ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts
-          # 建立后台动态端口转发 (SOCKS5 代理到本地 1080 端口)
-          # 参数解释: -D(动态代理) -q(静默) -C(压缩) -N(不执行远程命令) -f(后台运行)
-          ssh -D 1080 -q -C -N -f -i ~/.ssh/id_rsa $SERVER_USER@$SERVER_IP
-          echo "SSH SOCKS5 代理已在本地 1080 端口启动"
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
           
-          # 可选验证：测试当前外网IP是否已经变成你的服务器IP
-          # curl --socks5-hostname 127.0.0.1:1080 https://api.ipify.org
+          # 测试连通性（关闭 StrictHostKeyChecking 避免首次连接被拦截）
+          echo "==== 正在测试 SSH 连通性 ===="
+          ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 $SERVER_USER@$SERVER_IP "echo 'SSH 连接成功！'"
+          
+          # 建立后台动态端口转发 (SOCKS5 代理到本地 1080 端口)
+          echo "==== 正在建立 SOCKS5 隧道 ===="
+          ssh -D 1080 -q -C -N -f -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 $SERVER_USER@$SERVER_IP
+          echo "SSH SOCKS5 代理已在本地 1080 端口启动"
 
       - name: Generate and publish article
         env:
-          # 【修改 2】：配置全局代理环境变量，让后续 Python 脚本的网络请求全部走刚才建立的 SSH 代理
+          # 【关键】告诉 Python 所有的网络请求都走本机的 1080 端口（即通过 SSH 隧道转发给你的服务器）
           http_proxy: socks5h://127.0.0.1:1080
           https_proxy: socks5h://127.0.0.1:1080
           all_proxy: socks5h://127.0.0.1:1080
@@ -138,7 +137,7 @@ jobs:
           if[ "${{ steps.topic.outputs.pub_wx }}" = "false" ]; then
             PUB_WX_FLAG="--no-wx"
           fi
-          if [ "${{ steps.topic.outputs.pub_gh }}" = "false" ]; then
+          if[ "${{ steps.topic.outputs.pub_gh }}" = "false" ]; then
             PUB_GH_FLAG="--no-gh"
           fi
 
@@ -180,5 +179,5 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
               state: 'closed',
-              labels: ['generate', 'done']
+              labels:['generate', 'done']
             });
