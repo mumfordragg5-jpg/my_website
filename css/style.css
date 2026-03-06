@@ -464,6 +464,51 @@ img { max-width: 100%; height: auto; }
   letter-spacing: 0.02em;
 }
 
+/* ============ PAGINATION ============ */
+
+.pagination-bar {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 24px 60px;
+  text-align: center;
+}
+
+.pagination-info {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.load-more-btn {
+  display: inline-block;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 36px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.load-more-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.load-more-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+.pagination-bar.all-loaded .load-more-btn { display: none; }
+
 /* No results */
 .no-results {
   max-width: var(--max-width);

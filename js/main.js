@@ -1,3 +1,6 @@
+const PAGE_SIZE = 6;
+let currentPage = 1;
+
 document.addEventListener('DOMContentLoaded', () => {
   initThemeToggle();
   initReadingProgress();
@@ -5,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initFilters();
   initSearch();
   initMobileMenu();
+  renderPage();
 });
 
 function initThemeToggle() {
@@ -75,9 +79,8 @@ function initFilters() {
     btn.addEventListener('click', () => {
       buttons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-
-      const tag = btn.dataset.tag;
-      filterArticles(tag, getSearchQuery());
+      currentPage = 1;
+      renderPage();
     });
   });
 }
@@ -90,7 +93,8 @@ function initSearch() {
   input.addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      filterArticles(getActiveTag(), input.value.trim().toLowerCase());
+      currentPage = 1;
+      renderPage();
     }, 200);
   });
 }
@@ -105,30 +109,76 @@ function getSearchQuery() {
   return input ? input.value.trim().toLowerCase() : '';
 }
 
-function filterArticles(tag, query) {
-  const cards = document.querySelectorAll('.article-card');
-  const noResults = document.getElementById('noResults');
-  let visibleCount = 0;
+function getMatchingCards() {
+  const tag = getActiveTag();
+  const query = getSearchQuery();
+  const cards = Array.from(document.querySelectorAll('.article-card'));
 
-  cards.forEach(card => {
+  return cards.filter(card => {
     const tags = card.dataset.tags || '';
     const title = (card.dataset.title || '').toLowerCase();
     const search = (card.dataset.search || '').toLowerCase();
 
     const tagMatch = tag === 'all' || tags.includes(tag);
     const queryMatch = !query || title.includes(query) || search.includes(query);
+    return tagMatch && queryMatch;
+  });
+}
 
-    if (tagMatch && queryMatch) {
+function renderPage() {
+  const allCards = Array.from(document.querySelectorAll('.article-card'));
+  const matching = getMatchingCards();
+  const showCount = currentPage * PAGE_SIZE;
+
+  allCards.forEach(card => card.classList.add('hidden'));
+
+  matching.forEach((card, i) => {
+    if (i < showCount) {
       card.classList.remove('hidden');
-      visibleCount++;
-    } else {
-      card.classList.add('hidden');
     }
   });
 
+  updatePagination(matching.length, showCount);
+
+  const noResults = document.getElementById('noResults');
   if (noResults) {
-    noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+    noResults.style.display = matching.length === 0 ? 'block' : 'none';
   }
+}
+
+function updatePagination(total, shown) {
+  const bar = document.getElementById('paginationBar');
+  const info = document.getElementById('paginationInfo');
+  const btn = document.getElementById('loadMoreBtn');
+  if (!bar) return;
+
+  if (total === 0) {
+    bar.style.display = 'none';
+    return;
+  }
+
+  bar.style.display = 'block';
+  const displayedCount = Math.min(shown, total);
+
+  if (info) {
+    info.textContent = '已显示 ' + displayedCount + ' / ' + total + ' 篇文章';
+  }
+
+  if (btn) {
+    if (shown >= total) {
+      btn.style.display = 'none';
+    } else {
+      btn.style.display = 'inline-block';
+      const remaining = total - displayedCount;
+      const nextBatch = Math.min(remaining, PAGE_SIZE);
+      btn.textContent = '加载更多（还有 ' + remaining + ' 篇）';
+    }
+  }
+}
+
+function loadMore() {
+  currentPage++;
+  renderPage();
 }
 
 function resetFilters() {
@@ -140,7 +190,8 @@ function resetFilters() {
   const input = document.getElementById('searchInput');
   if (input) input.value = '';
 
-  filterArticles('all', '');
+  currentPage = 1;
+  renderPage();
 }
 
 function initMobileMenu() {
