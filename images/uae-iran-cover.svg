@@ -9,31 +9,10 @@
       <stop offset="0%" stop-color="#e85d3a"/>
       <stop offset="100%" stop-color="#ff9a76"/>
     </linearGradient>
-    <linearGradient id="iceGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#4fc3f7"/>
-      <stop offset="100%" stop-color="#0288d1"/>
-    </linearGradient>
     <linearGradient id="goldGrad" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#ffd54f"/>
       <stop offset="100%" stop-color="#ff8f00"/>
     </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    <filter id="glowStrong">
-      <feGaussianBlur stdDeviation="15" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-    <clipPath id="iceClip">
-      <polygon points="540,180 660,180 680,200 690,250 670,310 650,340 620,360 580,360 550,340 530,310 510,250 520,200"/>
-    </clipPath>
   </defs>
 
   <!-- Background -->
@@ -60,12 +39,10 @@
 
   <!-- Left side: UAE skyline silhouette -->
   <g opacity="0.25" fill="#4fc3f7">
-    <!-- Burj Khalifa -->
     <polygon points="180,480 185,180 190,160 195,180 200,480"/>
     <rect x="183" y="200" width="14" height="3" rx="1"/>
     <rect x="184" y="230" width="12" height="2" rx="1"/>
     <rect x="185" y="260" width="10" height="2" rx="1"/>
-    <!-- Buildings -->
     <rect x="120" y="350" width="30" height="130" rx="2"/>
     <rect x="155" y="380" width="20" height="100" rx="2"/>
     <rect x="210" y="320" width="25" height="160" rx="2"/>
@@ -75,37 +52,32 @@
     <rect x="295" y="410" width="20" height="70" rx="2"/>
   </g>
 
-  <!-- Right side: Iran dome/mosque silhouette -->
+  <!-- Right side: Iran mosque silhouette -->
   <g opacity="0.2" fill="#e85d3a">
-    <!-- Dome -->
     <ellipse cx="1000" cy="380" rx="50" ry="40"/>
     <rect x="975" y="380" width="50" height="100" rx="2"/>
-    <!-- Minarets -->
     <rect x="935" y="320" width="8" height="160" rx="2"/>
     <circle cx="939" cy="318" r="6"/>
     <rect x="1055" y="320" width="8" height="160" rx="2"/>
     <circle cx="1059" cy="318" r="6"/>
-    <!-- Other buildings -->
     <rect x="900" y="410" width="25" height="70" rx="2"/>
     <rect x="1070" y="400" width="20" height="80" rx="2"/>
     <rect x="1095" y="420" width="18" height="60" rx="2"/>
     <rect x="870" y="430" width="22" height="50" rx="2"/>
   </g>
 
-  <!-- Center: Frozen dollar / financial symbol -->
+  <!-- Center: Frozen dollar symbol -->
   <g transform="translate(600, 260)">
-    <!-- Ice crystal background -->
-    <g filter="url(#glowStrong)" opacity="0.3">
-      <polygon points="0,-120 20,-60 80,-40 30,0 40,70 0,35 -40,70 -30,0 -80,-40 -20,-60" fill="#4fc3f7"/>
-    </g>
+    <!-- Ice crystal glow -->
+    <polygon points="0,-120 20,-60 80,-40 30,0 40,70 0,35 -40,70 -30,0 -80,-40 -20,-60" fill="#4fc3f7" opacity="0.15"/>
 
-    <!-- Coin / Dollar -->
+    <!-- Coin -->
     <circle cx="0" cy="0" r="70" fill="#1a1030" stroke="url(#goldGrad)" stroke-width="3"/>
     <circle cx="0" cy="0" r="60" fill="none" stroke="url(#goldGrad)" stroke-width="1" opacity="0.5"/>
     <text x="0" y="18" font-family="Georgia, serif" font-size="72" font-weight="bold" fill="url(#goldGrad)" text-anchor="middle">$</text>
 
-    <!-- Ice cracks over the coin -->
-    <g stroke="#4fc3f7" stroke-width="2" opacity="0.7" filter="url(#glow)">
+    <!-- Ice cracks -->
+    <g stroke="#4fc3f7" stroke-width="2" opacity="0.7">
       <line x1="-35" y1="-50" x2="-10" y2="-5"/>
       <line x1="-10" y1="-5" x2="-25" y2="30"/>
       <line x1="-10" y1="-5" x2="20" y2="10"/>
@@ -115,7 +87,7 @@
       <line x1="-25" y1="30" x2="-50" y2="50"/>
     </g>
 
-    <!-- Snowflake/freeze particles -->
+    <!-- Freeze particles -->
     <g fill="#4fc3f7" opacity="0.6">
       <circle cx="-80" cy="-60" r="3"/>
       <circle cx="85" cy="-45" r="2"/>
@@ -127,7 +99,7 @@
       <circle cx="95" cy="15" r="2"/>
     </g>
 
-    <!-- Chain links (representing sanctions/freeze) -->
+    <!-- Chain links -->
     <g stroke="#8888a0" stroke-width="3" fill="none" opacity="0.5">
       <ellipse cx="-100" cy="0" rx="15" ry="10"/>
       <ellipse cx="-125" cy="0" rx="15" ry="10"/>
@@ -136,26 +108,24 @@
     </g>
   </g>
 
-  <!-- Connection lines between UAE and Iran through the dollar -->
+  <!-- Connection lines -->
   <g stroke="url(#accentGrad)" stroke-width="1" opacity="0.15" stroke-dasharray="6,4">
     <line x1="320" y1="400" x2="500" y2="280"/>
     <line x1="700" y1="280" x2="870" y2="400"/>
   </g>
 
-  <!-- "FROZEN" stamp effect -->
+  <!-- FROZEN stamp -->
   <g transform="translate(600, 430) rotate(-8)">
     <rect x="-120" y="-25" width="240" height="50" rx="6" fill="none" stroke="#4fc3f7" stroke-width="3" opacity="0.7"/>
     <rect x="-120" y="-25" width="240" height="50" rx="6" fill="#4fc3f7" opacity="0.08"/>
     <text x="0" y="10" font-family="Arial Black, Impact, sans-serif" font-size="32" font-weight="900" fill="#4fc3f7" text-anchor="middle" letter-spacing="12" opacity="0.8">FROZEN</text>
   </g>
 
-  <!-- Bottom bar with gradient -->
+  <!-- Bottom accent bar -->
   <rect x="0" y="600" width="1200" height="30" fill="url(#accentGrad)" opacity="0.8"/>
-
-  <!-- Top accent line -->
   <rect x="0" y="0" width="1200" height="4" fill="url(#accentGrad)" opacity="0.6"/>
 
-  <!-- Data flow particles (dots representing money flow) -->
+  <!-- Money flow dots -->
   <g fill="url(#goldGrad)" opacity="0.4">
     <circle cx="350" cy="350" r="3"/>
     <circle cx="380" cy="320" r="2"/>
@@ -167,14 +137,14 @@
     <circle cx="880" cy="370" r="3"/>
   </g>
 
-  <!-- Small text labels -->
-  <text x="190" y="510" font-family="Noto Sans SC, Arial, sans-serif" font-size="14" fill="#4fc3f7" text-anchor="middle" opacity="0.6" letter-spacing="4">UAE</text>
-  <text x="1000" y="510" font-family="Noto Sans SC, Arial, sans-serif" font-size="14" fill="#e85d3a" text-anchor="middle" opacity="0.6" letter-spacing="4">IRAN</text>
+  <!-- Labels -->
+  <text x="190" y="510" font-family="Arial, sans-serif" font-size="14" fill="#4fc3f7" text-anchor="middle" opacity="0.6" letter-spacing="4">UAE</text>
+  <text x="1000" y="510" font-family="Arial, sans-serif" font-size="14" fill="#e85d3a" text-anchor="middle" opacity="0.6" letter-spacing="4">IRAN</text>
 
-  <!-- Broken connection symbol -->
+  <!-- Broken link symbol -->
   <g transform="translate(600, 500)" opacity="0.5">
     <line x1="-30" y1="0" x2="-8" y2="0" stroke="#ff6b6b" stroke-width="2"/>
     <line x1="8" y1="0" x2="30" y2="0" stroke="#ff6b6b" stroke-width="2"/>
-    <text x="0" y="5" font-family="Arial, sans-serif" font-size="16" fill="#ff6b6b" text-anchor="middle"></text>
+    <text x="0" y="5" font-family="Arial, sans-serif" font-size="16" fill="#ff6b6b" text-anchor="middle">X</text>
   </g>
 </svg>
