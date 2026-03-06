@@ -45,7 +45,14 @@ DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
 WX_APPID = os.getenv("WX_APPID", "wxfb63a56ad8ccf4e9")
 WX_APPSECRET = os.getenv("WX_APPSECRET", "f77cfbc5ce0daba5dd517eba43281d75")
 WX_THUMB_MEDIA_ID = os.getenv("WX_THUMB_MEDIA_ID", "mvY2aVVddZ1IF8KCyZvchZA9K4dOCC3uELki_OfhWofmEYlgvM0Ywky831xZ3W2H")
-WX_AUTHOR = os.getenv("WX_AUTHOR", "科技马前卒")
+WX_AUTHOR = os.getenv("WX_AUTHOR", "价值慢生活")
+
+
+# 公众号2：科技马前卒
+WX_APPID2 = os.getenv("WX_APPID2", "")
+WX_APPSECRET2 = os.getenv("WX_APPSECRET2", "")
+WX_THUMB_MEDIA_ID2 = os.getenv("WX_THUMB_MEDIA_ID2", "")
+WX_AUTHOR2 = os.getenv("WX_AUTHOR2", "科技马前卒")
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 GITHUB_REPO = os.getenv("GITHUB_REPO", "mumfordragg5-jpg/my_website")
@@ -489,9 +496,15 @@ def build_index_card_html(slug: str, title: str, excerpt: str, tags: List[str],
 
 # ==================== 微信公众号发布 ====================
 
-def publish_wx_draft(title: str, html_content: str) -> Dict[str, Any]:
+def publish_wx_draft(title: str, html_content: str,
+                     appid: str = None, appsecret: str = None,
+                     thumb_media_id: str = None, author: str = None) -> Dict[str, Any]:
+    appid = appid or WX_APPID
+    appsecret = appsecret or WX_APPSECRET
+    thumb_media_id = thumb_media_id or WX_THUMB_MEDIA_ID
+    author = author or WX_AUTHOR
     r = requests.get("https://api.weixin.qq.com/cgi-bin/token", params={
-        "grant_type": "client_credential", "appid": WX_APPID, "secret": WX_APPSECRET,
+        "grant_type": "client_credential", "appid": appid, "secret": appsecret,
     }, timeout=15)
     r.raise_for_status()
     token = r.json().get("access_token")
@@ -500,7 +513,7 @@ def publish_wx_draft(title: str, html_content: str) -> Dict[str, Any]:
 
     payload = {"articles": [{
         "title": title, "content": html_content, "content_source_url": "",
-        "thumb_media_id": WX_THUMB_MEDIA_ID, "author": WX_AUTHOR,
+        "thumb_media_id": thumb_media_id, "author": author,
         "digest": title[:60], "show_cover_pic": 0,
         "need_open_comment": 1, "only_fans_can_comment": 0,
     }]}
@@ -622,7 +635,8 @@ def generate_slug(title: str) -> str:
 
 
 def run_pipeline(topic: str, source_hint: str = "综合",
-                 publish_wx: bool = True, publish_gh: bool = True) -> Dict[str, Any]:
+                 publish_wx: bool = True, publish_wx2: bool = False,
+                 publish_gh: bool = True) -> Dict[str, Any]:
     log.info(f"{'='*50}")
     log.info(f"话题: {topic}")
     log.info(f"{'='*50}")
@@ -670,6 +684,18 @@ def run_pipeline(topic: str, source_hint: str = "综合",
             log.error(f"微信公众号失败: {e}")
             result["wx_error"] = str(e)
 
+    if publish_wx2 and WX_APPID2:
+      try:
+          wx_html = md_to_wx_html(content_md)
+          wx_result2 = publish_wx_draft(title, wx_html,
+              appid=WX_APPID2, appsecret=WX_APPSECRET2,
+              thumb_media_id=WX_THUMB_MEDIA_ID2, author=WX_AUTHOR2)
+          result["wx_result2"] = wx_result2
+          log.info(f"公众号2: media_id={wx_result2.get('media_id', 'N/A')}")
+      except Exception as e:
+          log.error(f"公众号2失败: {e}")
+          result["wx_error2"] = str(e)
+
     if publish_gh and GITHUB_TOKEN:
         try:
             page_html = build_article_page_html(title, content_md, tags, source_hint, date_str)
@@ -703,6 +729,7 @@ if __name__ == "__main__":
     gen_p.add_argument("topic", type=str, help="话题")
     gen_p.add_argument("--source", type=str, default="综合")
     gen_p.add_argument("--no-wx", action="store_true", help="不发布到公众号")
+    gen_p.add_argument("--no-wx2", action="store_true", help="不发布到公众号2（科技马前卒）")
     gen_p.add_argument("--no-gh", action="store_true", help="不发布到 GitHub")
     gen_p.add_argument("--save", type=str, default="", help="保存 Markdown 到文件")
 
@@ -717,6 +744,7 @@ if __name__ == "__main__":
             topic=args.topic,
             source_hint=args.source,
             publish_wx=not args.no_wx,
+            publish_wx2=not args.no_wx2,
             publish_gh=not args.no_gh,
         )
         print(f"\n标题: {result['title']}")
@@ -731,3 +759,4 @@ if __name__ == "__main__":
             print(f"已保存: {args.save}")
     else:
         parser.print_help()
+
