@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>科技马前卒 - 文章管理后台</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Noto Sans SC", -apple-system, sans-serif; background: #f5f5f7; color: #1d1d1f; min-height: 100vh; }
+    .header { background: #fff; border-bottom: 1px solid #e5e5e7; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+    .logo { font-size: 1.15rem; font-weight: 700; color: #1d1d1f; }
+    .logo span { margin-right: 6px; }
+    .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #30d158; margin-right: 6px; }
+    .status-text { font-size: 0.8rem; color: #86868b; }
+    .container { max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    .card { background: #fff; border-radius: 16px; padding: 32px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .card-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; color: #86868b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+    input, textarea, select { width: 100%; padding: 12px 14px; border: 1px solid #d2d2d7; border-radius: 10px; font-size: 0.95rem; font-family: inherit; background: #fafafa; transition: all 0.2s; outline: none; color: #1d1d1f; }
+    input:focus, textarea:focus, select:focus { border-color: #0071e3; box-shadow: 0 0 0 3px rgba(0,113,227,0.15); background: #fff; }
+    textarea { resize: vertical; min-height: 80px; }
+    .form-row { margin-bottom: 20px; }
+    .form-row-inline { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .tag-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag-check { display: none; }
+    .tag-label { display: inline-block; padding: 6px 14px; border: 1px solid #d2d2d7; border-radius: 8px; font-size: 0.82rem; cursor: pointer; transition: all 0.2s; user-select: none; }
+    .tag-check:checked + .tag-label { background: #0071e3; border-color: #0071e3; color: #fff; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 14px 28px; border: none; border-radius: 12px; font-size: 0.95rem; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.2s; }
+    .btn-primary { background: #0071e3; color: #fff; width: 100%; }
+    .btn-primary:hover { background: #0077ed; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,113,227,0.3); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .result { display: none; }
+    .result.show { display: block; }
+    .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .result-actions { display: flex; gap: 8px; }
+    .btn-sm { padding: 8px 16px; font-size: 0.82rem; border-radius: 8px; border: 1px solid #d2d2d7; background: #fff; color: #1d1d1f; }
+    .btn-sm:hover { border-color: #0071e3; color: #0071e3; }
+    .btn-success { background: #30d158; color: #fff; border-color: #30d158; }
+    .btn-success:hover { background: #28c04e; border-color: #28c04e; color: #fff; }
+    .article-preview { background: #fafafa; border: 1px solid #e5e5e7; border-radius: 10px; padding: 24px; max-height: 500px; overflow-y: auto; line-height: 1.9; font-size: 0.92rem; }
+    .article-preview h1 { font-size: 1.3rem; margin-bottom: 16px; }
+    .article-preview h2 { font-size: 1.15rem; margin: 24px 0 12px; padding-bottom: 8px; border-bottom: 1px solid #e5e5e7; }
+    .article-preview p { margin-bottom: 14px; }
+    .article-preview hr { border: none; height: 1px; background: #e5e5e7; margin: 20px 0; }
+    .article-preview strong { color: #1d1d1f; }
+    .article-preview ul, .article-preview ol { padding-left: 20px; margin-bottom: 14px; }
+    .loading { text-align: center; padding: 40px; color: #86868b; }
+    .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid #e5e5e7; border-top-color: #0071e3; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1d1d1f; color: #fff; padding: 12px 24px; border-radius: 10px; font-size: 0.88rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100; }
+    .toast.show { opacity: 1; }
+    .history-item { padding: 14px 0; border-bottom: 1px solid #f0f0f2; display: flex; justify-content: space-between; align-items: center; }
+    .history-item:last-child { border-bottom: none; }
+    .history-title { font-weight: 600; font-size: 0.9rem; }
+    .history-meta { font-size: 0.78rem; color: #86868b; margin-top: 4px; }
+    @media (max-width: 640px) { .form-row-inline { grid-template-columns: 1fr; } .container { padding: 0 12px; } .card { padding: 20px; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo"><span>🏇</span>科技马前卒 · 管理后台</div>
+    <div><span class="status-dot"></span><span class="status-text">系统运行中</span></div>
+  </div>
+
+  <div class="container">
+
+    <!-- 提交话题 -->
+    <div class="card">
+      <div class="card-title">📝 提交话题</div>
+      <form id="articleForm" onsubmit="submitArticle(event)">
+        <div class="form-row">
+          <label>新闻标题（英文或中文）</label>
+          <input type="text" id="headline" name="headline" placeholder="粘贴你看到的新闻标题..." required>
+        </div>
+        <div class="form-row-inline">
+          <div>
+            <label>信息来源</label>
+            <select id="source" name="source">
+              <option value="Bloomberg（彭博社）">Bloomberg 彭博社</option>
+              <option value="Wall Street Journal（华尔街日报）">WSJ 华尔街日报</option>
+              <option value="New York Times（纽约时报）">NYT 纽约时报</option>
+              <option value="The Economist（经济学人）">Economist 经济学人</option>
+              <option value="Reuters（路透社）">Reuters 路透社</option>
+              <option value="Financial Times（金融时报）">FT 金融时报</option>
+              <option value="其他">其他</option>
+            </select>
+          </div>
+          <div>
+            <label>发布到</label>
+            <select id="publish_to" name="publish_to">
+              <option value="both">网站 + 微信公众号</option>
+              <option value="website">仅网站</option>
+              <option value="wechat">仅微信公众号</option>
+              <option value="none">不发布（仅生成）</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>标签</label>
+          <div class="tag-grid">
+            <input type="checkbox" class="tag-check" id="tag-market" name="tags" value="市场" checked>
+            <label class="tag-label" for="tag-market">📊 市场</label>
+            <input type="checkbox" class="tag-check" id="tag-hotspot" name="tags" value="热点">
+            <label class="tag-label" for="tag-hotspot">🔥 热点</label>
+            <input type="checkbox" class="tag-check" id="tag-china" name="tags" value="中国">
+            <label class="tag-label" for="tag-china">🇨🇳 中国</label>
+            <input type="checkbox" class="tag-check" id="tag-geo" name="tags" value="地缘">
+            <label class="tag-label" for="tag-geo">🌍 地缘</label>
+            <input type="checkbox" class="tag-check" id="tag-energy" name="tags" value="能源">
+            <label class="tag-label" for="tag-energy">⚡ 能源</label>
+            <input type="checkbox" class="tag-check" id="tag-tech" name="tags" value="科技">
+            <label class="tag-label" for="tag-tech">💻 科技</label>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>补充信息（可选，粘贴关键数据提高准确度）</label>
+          <textarea id="extra_info" name="extra_info" placeholder="如：沪深300跌幅1.2%，日经跌3.5%..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" id="submitBtn">生成文章</button>
+      </form>
+    </div>
+
+    <!-- 生成中 -->
+    <div class="card loading" id="loadingCard" style="display:none;">
+      <div class="spinner"></div>
+      <p>DeepSeek 正在写文章，大约需要 30-60 秒...</p>
+    </div>
+
+    <!-- 结果 -->
+    <div class="card result" id="resultCard">
+      <div class="result-header">
+        <div class="card-title">📄 生成结果</div>
+        <div class="result-actions">
+          <button class="btn btn-sm" onclick="copyMarkdown()">复制 Markdown</button>
+          <button class="btn btn-sm btn-success" onclick="publishNow()" id="publishBtn">发布</button>
+        </div>
+      </div>
+      <div class="article-preview" id="articlePreview"></div>
+    </div>
+
+    <!-- 历史记录 -->
+    <div class="card" id="historyCard" style="display:none;">
+      <div class="card-title">📋 今日生成记录</div>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let lastArticleData = null;
+
+    async function submitArticle(e) {
+      e.preventDefault();
+
+      const headline = document.getElementById('headline').value.trim();
+      if (!headline) return;
+
+      const formData = {
+        headline: headline,
+        source: document.getElementById('source').value,
+        extra_info: document.getElementById('extra_info').value.trim(),
+        tags: Array.from(document.querySelectorAll('input[name="tags"]:checked')).map(cb => cb.value),
+        publish_to: document.getElementById('publish_to').value,
+      };
+
+      document.getElementById('submitBtn').disabled = true;
+      document.getElementById('loadingCard').style.display = 'block';
+      document.getElementById('resultCard').classList.remove('show');
+
+      try {
+        const resp = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+
+        const data = await resp.json();
+
+        if (data.success) {
+          lastArticleData = data;
+          document.getElementById('articlePreview').innerHTML = data.html_preview;
+          document.getElementById('resultCard').classList.add('show');
+          showToast('文章生成成功！');
+          addToHistory(data.title);
+        } else {
+          showToast('生成失败：' + data.error);
+        }
+      } catch (err) {
+        showToast('请求失败：' + err.message);
+      } finally {
+        document.getElementById('submitBtn').disabled = false;
+        document.getElementById('loadingCard').style.display = 'none';
+      }
+    }
+
+    function copyMarkdown() {
+      if (lastArticleData && lastArticleData.markdown) {
+        navigator.clipboard.writeText(lastArticleData.markdown).then(() => {
+          showToast('已复制到剪贴板');
+        });
+      }
+    }
+
+    async function publishNow() {
+      if (!lastArticleData) return;
+
+      document.getElementById('publishBtn').disabled = true;
+      document.getElementById('publishBtn').textContent = '发布中...';
+
+      try {
+        const resp = await fetch('/api/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: lastArticleData.title,
+            content: lastArticleData.markdown,
+            tags: lastArticleData.tags,
+            source: lastArticleData.source,
+            publish_to: document.getElementById('publish_to').value,
+          }),
+        });
+
+        const data = await resp.json();
+        if (data.success) {
+          showToast('发布成功！');
+        } else {
+          showToast('发布失败：' + data.error);
+        }
+      } catch (err) {
+        showToast('发布请求失败：' + err.message);
+      } finally {
+        document.getElementById('publishBtn').disabled = false;
+        document.getElementById('publishBtn').textContent = '发布';
+      }
+    }
+
+    function addToHistory(title) {
+      const historyCard = document.getElementById('historyCard');
+      const historyList = document.getElementById('historyList');
+      historyCard.style.display = 'block';
+
+      const now = new Date();
+      const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+      const item = document.createElement('div');
+      item.className = 'history-item';
+      item.innerHTML = '<div><div class="history-title">' + title + '</div><div class="history-meta">' + time + ' 生成</div></div>';
+      historyList.prepend(item);
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+  </script>
+</body>
+</html>
