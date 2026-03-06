@@ -35,6 +35,11 @@ on:
         required: false
         default: true
         type: boolean
+      publish_wx2:   
+        description: '发布到公众号2（科技马前卒）'
+        required: false
+        default: false
+        type: boolean
       publish_gh:
         description: '发布到 GitHub 网站'
         required: false
@@ -79,12 +84,14 @@ jobs:
             SOURCE="${{ github.event.inputs.source }}"
             PUB_WX="${{ github.event.inputs.publish_wx }}"
             PUB_GH="${{ github.event.inputs.publish_gh }}"
+            PUB_WX2="${{ github.event.inputs.publish_wx2 }}"  # 
           else
             TOPIC="${{ github.event.issue.title }}"
             BODY="${{ github.event.issue.body }}"
             SOURCE="综合"
             PUB_WX="true"
             PUB_GH="true"
+            PUB_WX2="true"                                    # ← 新增
             # 从 Issue body 解析参数（可选）
             if echo "$BODY" | grep -qi "source:"; then
               SOURCE=$(echo "$BODY" | grep -i "source:" | head -1 | sed 's/.*source:\s*//i' | xargs)
@@ -128,6 +135,9 @@ jobs:
           WX_APPID: ${{ secrets.WX_APPID }}
           WX_APPSECRET: ${{ secrets.WX_APPSECRET }}
           WX_THUMB_MEDIA_ID: ${{ secrets.WX_THUMB_MEDIA_ID }}
+          WX_APPID2: ${{ secrets.WX_APPID2 }}
+          WX_APPSECRET2: ${{ secrets.WX_APPSECRET2 }}
+          WX_THUMB_MEDIA_ID2: ${{ secrets.WX_THUMB_MEDIA_ID2 }}
           DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
           DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
           NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
@@ -140,6 +150,12 @@ jobs:
           if [ "${{ steps.topic.outputs.pub_gh }}" = "false" ]; then
             PUB_GH_FLAG="--no-gh"
           fi
+          # 新增 wx2 flag 判断：
+          PUB_WX2_FLAG=""
+          if [ "${{ steps.topic.outputs.pub_wx2 }}" = "false" ]; then
+            PUB_WX2_FLAG="--no-wx2"
+          fi
+          # python 命令里加上 $PUB_WX2_FLAG
 
           python tools/gzh_news_writer.py gen \
             "${{ steps.topic.outputs.topic }}" \
@@ -181,6 +197,7 @@ jobs:
               state: 'closed',
               labels: ['generate', 'done']
             });
+
 
 
 
