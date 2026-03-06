@@ -43,7 +43,7 @@ on:
 
   # Issue 触发：创建带 "generate" 标签的 Issue
   issues:
-    types:[labeled] # 规范：冒号后面加空格
+    types: [labeled]
 
 permissions:
   contents: write
@@ -69,13 +69,11 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        # 安装必要的库，其中 pysocks 是让 requests 支持代理的关键
-        run: pip install requests openai pysocks
+        run: pip install requests openai
 
       - name: Determine topic
         id: topic
         run: |
-          # 规范：Bash 的 if[ 后面必须要有空格
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TOPIC="${{ github.event.inputs.topic }}"
             SOURCE="${{ github.event.inputs.source }}"
@@ -98,32 +96,8 @@ jobs:
           echo "pub_gh=$PUB_GH" >> $GITHUB_OUTPUT
           echo "话题: $TOPIC / 来源: $SOURCE"
 
-      - name: Setup SSH Proxy Tunnel
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          SERVER_IP: ${{ secrets.SERVER_IP }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          
-          # 测试连通性（关闭 StrictHostKeyChecking 避免首次连接被拦截）
-          echo "==== 正在测试 SSH 连通性 ===="
-          ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 $SERVER_USER@$SERVER_IP "echo 'SSH 连接成功！'"
-          
-          # 建立后台动态端口转发 (SOCKS5 代理到云端虚拟机的 1080 端口)
-          echo "==== 正在建立 SOCKS5 隧道 ===="
-          ssh -D 1080 -q -C -N -f -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 $SERVER_USER@$SERVER_IP
-          echo "SSH SOCKS5 代理已在本地 1080 端口启动"
-
       - name: Generate and publish article
         env:
-          # 告诉 Python 所有的网络请求都走本机的 1080 端口（通过 SSH 隧道转发给你的服务器）
-          http_proxy: socks5h://127.0.0.1:1080
-          https_proxy: socks5h://127.0.0.1:1080
-          all_proxy: socks5h://127.0.0.1:1080
-          
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           WX_APPID: ${{ secrets.WX_APPID }}
@@ -135,11 +109,10 @@ jobs:
         run: |
           PUB_WX_FLAG=""
           PUB_GH_FLAG=""
-          # 规范：Bash 的 if[ 后面必须要有空格
-          if[ "${{ steps.topic.outputs.pub_wx }}" = "false" ]; then
+          if [ "${{ steps.topic.outputs.pub_wx }}" = "false" ]; then
             PUB_WX_FLAG="--no-wx"
           fi
-          if[ "${{ steps.topic.outputs.pub_gh }}" = "false" ]; then
+          if [ "${{ steps.topic.outputs.pub_gh }}" = "false" ]; then
             PUB_GH_FLAG="--no-gh"
           fi
 
@@ -181,5 +154,5 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
               state: 'closed',
-              labels:['generate', 'done'] // 规范：逗号后面加空格
+              labels: ['generate', 'done']
             });
