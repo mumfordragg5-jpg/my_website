@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0a1628"/>
+      <stop offset="100%" stop-color="#1a0a28"/>
+    </linearGradient>
+    <linearGradient id="red" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff4444"/>
+      <stop offset="100%" stop-color="#cc0000"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00e676"/>
+      <stop offset="100%" stop-color="#00a152"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Grid -->
+  <g opacity="0.05" stroke="#ffffff" stroke-width="0.5">
+    <line x1="0" y1="126" x2="1200" y2="126"/>
+    <line x1="0" y1="252" x2="1200" y2="252"/>
+    <line x1="0" y1="378" x2="1200" y2="378"/>
+    <line x1="0" y1="504" x2="1200" y2="504"/>
+    <line x1="240" y1="0" x2="240" y2="630"/>
+    <line x1="480" y1="0" x2="480" y2="630"/>
+    <line x1="720" y1="0" x2="720" y2="630"/>
+    <line x1="960" y1="0" x2="960" y2="630"/>
+  </g>
+
+  <!-- Red down arrows (other Asian markets crashing) -->
+  <g opacity="0.12" fill="#ff4444">
+    <polygon points="100,80 130,180 115,180 115,320 85,320 85,180 70,180"/>
+    <polygon points="250,120 280,220 265,220 265,380 235,380 235,220 220,220"/>
+    <polygon points="950,100 980,200 965,200 965,350 935,350 935,200 920,200"/>
+    <polygon points="1100,60 1130,160 1115,160 1115,290 1085,290 1085,160 1070,160"/>
+  </g>
+
+  <!-- Chart area: falling red lines (other markets) -->
+  <g fill="none" stroke-width="2.5" opacity="0.5">
+    <!-- KOSPI crash line -->
+    <polyline points="150,200 250,210 350,230 450,280 500,380 530,420 560,460" stroke="#ff4444" stroke-dasharray="6,3"/>
+    <!-- Nikkei fall -->
+    <polyline points="150,220 250,230 350,250 450,290 500,340 530,370 560,400" stroke="#ff6666" stroke-dasharray="6,3"/>
+    <!-- Taiwan fall -->
+    <polyline points="150,230 250,240 350,255 450,295 500,350 530,385 560,410" stroke="#ff8888"/>
+  </g>
+
+  <!-- Chart area: A-share line (much less decline, green) -->
+  <polyline points="150,250 250,255 350,262 450,280 500,300 530,310 560,315" fill="none" stroke="url(#green)" stroke-width="4" opacity="0.9"/>
+
+  <!-- Glow under the green line -->
+  <polygon points="150,250 250,255 350,262 450,280 500,300 530,310 560,315 560,330 150,330" fill="#00e676" opacity="0.06"/>
+
+  <!-- Shield icon (center-right) representing A-share resilience -->
+  <g transform="translate(800, 280)">
+    <!-- Shield shape -->
+    <path d="M0,-100 L70,-70 L70,20 C70,70 35,100 0,120 C-35,100 -70,70 -70,20 L-70,-70 Z" fill="#00e676" opacity="0.15"/>
+    <path d="M0,-100 L70,-70 L70,20 C70,70 35,100 0,120 C-35,100 -70,70 -70,20 L-70,-70 Z" fill="none" stroke="#00e676" stroke-width="2" opacity="0.6"/>
+    <!-- A text inside shield -->
+    <text x="0" y="15" font-family="Arial Black, sans-serif" font-size="64" font-weight="900" fill="#00e676" text-anchor="middle" opacity="0.8">A</text>
+  </g>
+
+  <!-- Market labels with percentage -->
+  <!-- KOSPI -->
+  <g transform="translate(160, 500)">
+    <rect x="-60" y="-18" width="120" height="36" rx="6" fill="#ff4444" opacity="0.15" stroke="#ff4444" stroke-width="1"/>
+    <text x="0" y="6" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#ff4444" text-anchor="middle">KOSPI -11%</text>
+  </g>
+  <!-- Nikkei -->
+  <g transform="translate(340, 500)">
+    <rect x="-65" y="-18" width="130" height="36" rx="6" fill="#ff4444" opacity="0.15" stroke="#ff4444" stroke-width="1"/>
+    <text x="0" y="6" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#ff6666" text-anchor="middle">Nikkei -3.9%</text>
+  </g>
+  <!-- Thailand -->
+  <g transform="translate(520, 500)">
+    <rect x="-55" y="-18" width="110" height="36" rx="6" fill="#ff4444" opacity="0.15" stroke="#ff4444" stroke-width="1"/>
+    <text x="0" y="6" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#ff8888" text-anchor="middle">SET -8%</text>
+  </g>
+  <!-- A-Share -->
+  <g transform="translate(800, 500)">
+    <rect x="-70" y="-20" width="140" height="40" rx="8" fill="#00e676" opacity="0.15" stroke="#00e676" stroke-width="2"/>
+    <text x="0" y="7" font-family="Arial, sans-serif" font-size="16" font-weight="900" fill="#00e676" text-anchor="middle">A-Share -1.4%</text>
+  </g>
+
+  <!-- Oil price surge indicator -->
+  <g transform="translate(1050, 160)">
+    <circle cx="0" cy="0" r="50" fill="#ff8f00" opacity="0.1" stroke="#ff8f00" stroke-width="1.5"/>
+    <text x="0" y="-8" font-family="Arial, sans-serif" font-size="12" fill="#ffd54f" text-anchor="middle" opacity="0.7">OIL</text>
+    <text x="0" y="14" font-family="Arial Black, sans-serif" font-size="18" font-weight="900" fill="#ffd54f" text-anchor="middle">+13%</text>
+    <!-- Up arrow -->
+    <polygon points="0,-38 10,-25 5,-25 5,-18 -5,-18 -5,-25 -10,-25" fill="#ffd54f" opacity="0.6"/>
+  </g>
+
+  <!-- Top and bottom accent bars -->
+  <rect x="0" y="0" width="1200" height="4" fill="url(#red)" opacity="0.6"/>
+  <rect x="0" y="626" width="1200" height="4" fill="url(#green)" opacity="0.8"/>
+</svg>
