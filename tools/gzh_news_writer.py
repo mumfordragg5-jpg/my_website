@@ -295,7 +295,7 @@ def _inline_fmt(text: str) -> str:
 
 
 def md_to_wx_html(md: str) -> str:
-    parts, in_list = [], False
+    parts, in_list ,empty_count = [], False, 0
     for line in md.split("\n"):
         s = line.strip()
         if not s:
@@ -303,6 +303,10 @@ def md_to_wx_html(md: str) -> str:
                 parts.append("</ul>")
                 in_list = False
             # parts.append("<br/>")
+            empty_count += 1
+            # 只允许最多 1 个空行，忽略连续空行
+            if empty_count > 1:
+                continue
             continue
         if s.startswith("---") or s.startswith("***"):
             if in_list:
@@ -759,5 +763,6 @@ if __name__ == "__main__":
             print(f"已保存: {args.save}")
     else:
         parser.print_help()
+
 
 
