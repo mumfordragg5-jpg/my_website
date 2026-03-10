@@ -191,7 +191,7 @@ jobs:
             PUB_XHS_FLAG="--xiaohongshu"
           fi
 
-          python tools/gzh_news_writer.py gen \
+          python tools/multi_platform_write.py gen \
             "${{ steps.topic.outputs.topic }}" \
             --source "${{ steps.topic.outputs.source }}" \
             $PUB_WX_FLAG $PUB_GH_FLAG $PUB_WX2_FLAG $PUB_TOUTIAO_FLAG $PUB_XHS_FLAG \
@@ -231,6 +231,7 @@ jobs:
               state: 'closed',
               labels: ['generate', 'done']
             });
+
 
 
 
