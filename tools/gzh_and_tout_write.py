@@ -59,6 +59,10 @@ TOUTIAO_APP_ID = os.getenv("TOUTIAO_APP_ID", "")
 TOUTIAO_APP_SECRET = os.getenv("TOUTIAO_APP_SECRET", "")
 TOUTIAO_ACCESS_TOKEN = os.getenv("TOUTIAO_ACCESS_TOKEN", "")  # 今日头条的 access_token 有效期较长
 
+# 小红书配置
+XIAOHONGSHU_ACCESS_TOKEN = os.getenv("XIAOHONGSHU_ACCESS_TOKEN", "")
+XIAOHONGSHU_USER_ID = os.getenv("XIAOHONGSHU_USER_ID", "")
+
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 GITHUB_REPO = os.getenv("GITHUB_REPO", "mumfordragg5-jpg/my_website")
 GITHUB_BRANCH = os.getenv("GITHUB_BRANCH", "main")
@@ -449,6 +453,84 @@ def md_to_toutiao(md: str) -> str:
     return "\n".join(lines)
 
 
+def md_to_xiaohongshu(md: str, title: str) -> str:
+    """
+    将 Markdown 转换为小红书风格的文本
+    小红书特点：
+    - 使用 emoji 表情增加活力
+    - 短句为主，适合手机阅读
+    - 使用话题标签 #
+    - 分段清晰，每段不超过 3-4 行
+    - 重点内容用 emoji 标注
+    """
+    lines = []
+    
+    # 添加标题（小红书风格）
+    lines.append(f"📌 {title}\n")
+    lines.append("─" * 20 + "\n")
+    
+    paragraph_count = 0
+    
+    for line in md.split("\n"):
+        s = line.strip()
+        
+        # 跳过空行（但保留段落间隔）
+        if not s:
+            if lines and lines[-1] != "":
+                lines.append("")
+            continue
+        
+        # 跳过分割线
+        if s.startswith("---") or s.startswith("***"):
+            lines.append("·" * 15)
+            continue
+        
+        # 一级标题转为 emoji 标题
+        if s.startswith("# "):
+            title_text = s[2:].strip()
+            lines.append(f"\n💡 {title_text}\n")
+            continue
+        
+        # 二级标题转为 emoji 小标题
+        if s.startswith("## "):
+            title_text = s[3:].strip()
+            lines.append(f"\n✨ {title_text}\n")
+            continue
+        
+        # 三级标题
+        if s.startswith("### "):
+            title_text = s[4:].strip()
+            lines.append(f"\n🔸 {title_text}\n")
+            continue
+        
+        # 数字编号段落（01 02 03）
+        nm = re.match(r"^(0[1-9]|[1-9]\d?)\s+(.+)$", s)
+        if nm:
+            lines.append(f"\n{nm.group(1)}️⃣ {nm.group(2)}\n")
+            continue
+        
+        # 列表项转为 emoji 列表
+        if s.startswith("- ") or s.startswith("* ") or s.startswith("+ "):
+            item_text = s[2:].strip()
+            lines.append(f"▫️ {item_text}")
+            continue
+        
+        # 处理加粗文本（**text** 转为 emoji 强调）
+        s = re.sub(r'\*\*(.+?)\*\*', r'【\1】', s)
+        
+        # 普通段落
+        lines.append(s)
+        paragraph_count += 1
+    
+    # 添加结尾引导
+    lines.append("\n" + "─" * 20)
+    lines.append("\n💬 你怎么看？欢迎评论区讨论")
+    lines.append("❤️ 觉得有用记得点赞收藏哦")
+    lines.append("\n#财经 #国际新闻 #深度解读")
+    
+    return "\n".join(lines)
+
+
 def build_article_page_html(title: str, md_content: str, tags: List[str],
                             source: str, date_str: str) -> str:
     body_html = md_to_website_body(md_content)
@@ -665,6 +747,127 @@ def publish_toutiao_article(title: str, content: str,
         raise
 
 
+def publish_toutiao_article(title: str, content: str, 
+                            cover_images: List[str] = None) -> Dict[str, Any]:
+    """
+    发布文章到今日头条
+    
+    参数:
+        title: 文章标题
+        content: 文章内容（Markdown 格式）
+        cover_images: 封面图片 URL 列表（可选，最多3张）
+    
+    返回:
+        今日头条 API 响应
+    
+    注意：
+        1. 需要先在今日头条开放平台申请账号并获取 access_token
+        2. access_token 获取方式：https://open.toutiao.com/
+        3. 文章会进入草稿箱，需要手动审核发布
+    """
+    if not TOUTIAO_ACCESS_TOKEN:
+        raise RuntimeError("未配置今日头条 access_token，请设置环境变量 TOUTIAO_ACCESS_TOKEN")
+    
+    # 今日头条文章发布 API
+    url = "https://open.toutiao.com/api/media/article/create/"
+    
+    # 构建请求参数
+    payload = {
+        "access_token": TOUTIAO_ACCESS_TOKEN,
+        "title": title,
+        "content": content,
+        "content_type": "markdown",  # 使用 Markdown 格式
+        "article_type": 0,  # 0-普通图文
+        "save_draft": 1,  # 1-保存为草稿，0-直接发布
+    }
+    
+    # 添加封面图（可选）
+    if cover_images:
+        payload["cover_images"] = cover_images[:3]  # 最多3张
+    
+    try:
+        r = requests.post(url, json=payload, timeout=30)
+        r.raise_for_status()
+        result = r.json()
+        
+        if result.get("errcode") == 0:
+            log.info(f"今日头条: 文章已保存到草稿箱, article_id={result.get('data', {}).get('article_id', 'N/A')}")
+            return result
+        else:
+            raise RuntimeError(f"今日头条 API 错误: {result.get('errmsg', '未知错误')}")
+            
+    except Exception as e:
+        log.error(f"今日头条发布失败: {e}")
+        raise
+
+
+def publish_xiaohongshu_note(title: str, content: str, 
+                             images: List[str] = None,
+                             topics: List[str] = None) -> Dict[str, Any]:
+    """
+    发布笔记到小红书
+    
+    参数:
+        title: 笔记标题
+        content: 笔记内容（纯文本，已转换为小红书风格）
+        images: 图片 URL 列表（可选，最多9张）
+        topics: 话题标签列表（可选）
+    
+    返回:
+        小红书 API 响应
+    
+    注意：
+        1. 需要先在小红书开放平台申请账号并获取 access_token
+        2. 小红书 API 文档：https://open.xiaohongshu.com/
+        3. 笔记会进入草稿箱，需要手动审核发布
+        4. 小红书对内容审核较严格，建议人工审核后再发布
+    """
+    if not XIAOHONGSHU_ACCESS_TOKEN:
+        raise RuntimeError("未配置小红书 access_token，请设置环境变量 XIAOHONGSHU_ACCESS_TOKEN")
+    
+    # 小红书笔记发布 API（注意：实际 API 地址可能需要根据官方文档调整）
+    url = "https://edith.xiaohongshu.com/api/sns/web/v1/note/create"
+    
+    # 构建请求头
+    headers = {
+        "Authorization": f"Bearer {XIAOHONGSHU_ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    
+    # 构建请求参数
+    payload = {
+        "title": title[:20],  # 小红书标题限制20字
+        "desc": content[:1000],  # 小红书正文限制1000字
+        "type": "normal",  # 笔记类型：normal-普通笔记
+        "post_time": "0",  # 0-立即发布，或指定时间戳
+        "is_private": False,  # 是否私密
+    }
+    
+    # 添加图片（可选）
+    if images:
+        payload["image_list"] = [{"url": img} for img in images[:9]]  # 最多9张
+    
+    # 添加话题标签（可选）
+    if topics:
+        payload["topics"] = [{"name": topic} for topic in topics[:10]]  # 最多10个话题
+    
+    try:
+        r = requests.post(url, headers=headers, json=payload, timeout=30)
+        r.raise_for_status()
+        result = r.json()
+        
+        if result.get("success") or result.get("code") == 0:
+            note_id = result.get("data", {}).get("note_id", "N/A")
+            log.info(f"小红书: 笔记已保存到草稿箱, note_id={note_id}")
+            return result
+        else:
+            raise RuntimeError(f"小红书 API 错误: {result.get('msg', '未知错误')}")
+            
+    except Exception as e:
+        log.error(f"小红书发布失败: {e}")
+        raise
+
+
 # ==================== GitHub API ====================
 
 def _gh_headers() -> Dict[str, str]:
@@ -775,7 +978,8 @@ def generate_slug(title: str) -> str:
 
 def run_pipeline(topic: str, source_hint: str = "综合",
                  publish_wx: bool = True, publish_wx2: bool = False,
-                 publish_gh: bool = True, publish_toutiao: bool = False) -> Dict[str, Any]:
+                 publish_gh: bool = True, publish_toutiao: bool = False,
+                 publish_xiaohongshu: bool = False) -> Dict[str, Any]:
     log.info(f"{'='*50}")
     log.info(f"话题: {topic}")
     log.info(f"{'='*50}")
@@ -846,6 +1050,18 @@ def run_pipeline(topic: str, source_hint: str = "综合",
             log.error(f"今日头条失败: {e}")
             result["toutiao_error"] = str(e)
 
+    if publish_xiaohongshu and XIAOHONGSHU_ACCESS_TOKEN:
+        try:
+            xhs_content = md_to_xiaohongshu(content_md, title)
+            xhs_topics = [f"#{tag}" for tag in tags] + ["#财经", "#国际新闻"]
+            xhs_result = publish_xiaohongshu_note(title, xhs_content, topics=xhs_topics)
+            result["xiaohongshu_result"] = xhs_result
+            note_id = xhs_result.get("data", {}).get("note_id", "N/A")
+            log.info(f"小红书: note_id={note_id}")
+        except Exception as e:
+            log.error(f"小红书发布失败: {e}")
+            result["xiaohongshu_error"] = str(e)
+
     if publish_gh and GITHUB_TOKEN:
         try:
             page_html = build_article_page_html(title, content_md, tags, source_hint, date_str)
@@ -862,6 +1078,8 @@ def run_pipeline(topic: str, source_hint: str = "综合",
             msg += f"\n网站: {result['gh_url']}"
         if result.get("toutiao_result"):
             msg += f"\n今日头条: 已保存到草稿箱"
+        if result.get("xiaohongshu_result"):
+            msg += f"\n小红书: 已保存到草稿箱"
         send_dingtalk(msg)
 
     result["status"] = "done"
@@ -884,6 +1102,7 @@ if __name__ == "__main__":
     gen_p.add_argument("--no-wx2", action="store_true", help="不发布到公众号2（科技马前卒）")
     gen_p.add_argument("--no-gh", action="store_true", help="不发布到 GitHub")
     gen_p.add_argument("--toutiao", action="store_true", help="发布到今日头条")
+    gen_p.add_argument("--xiaohongshu", action="store_true", help="发布到小红书")
     gen_p.add_argument("--save", type=str, default="", help="保存 Markdown 到文件")
 
     args = parser.parse_args()
@@ -900,6 +1119,7 @@ if __name__ == "__main__":
             publish_wx2=not args.no_wx2,
             publish_gh=not args.no_gh,
             publish_toutiao=args.toutiao,
+            publish_xiaohongshu=args.xiaohongshu,
         )
         print(f"\n标题: {result['title']}")
         if result.get("gh_url"):
@@ -909,6 +1129,9 @@ if __name__ == "__main__":
         if result.get("toutiao_result"):
             article_id = result['toutiao_result'].get('data', {}).get('article_id', 'N/A')
             print(f"今日头条: {article_id}")
+        if result.get("xiaohongshu_result"):
+            note_id = result['xiaohongshu_result'].get('data', {}).get('note_id', 'N/A')
+            print(f"小红书: {note_id}")
 
         if args.save:
             with open(args.save, "w", encoding="utf-8") as f:

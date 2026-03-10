@@ -45,6 +45,11 @@ on:
         required: false
         default: false
         type: boolean
+      publish_xiaohongshu:
+        description: '发布到小红书'
+        required: false
+        default: false
+        type: boolean
       publish_gh:
         description: '发布到 GitHub 网站'
         required: false
@@ -91,6 +96,7 @@ jobs:
             PUB_GH="${{ github.event.inputs.publish_gh }}"
             PUB_WX2="${{ github.event.inputs.publish_wx2 }}"
             PUB_TOUTIAO="${{ github.event.inputs.publish_toutiao }}"
+            PUB_XHS="${{ github.event.inputs.publish_xiaohongshu }}"
           else
             TOPIC="${{ github.event.issue.title }}"
             BODY="${{ github.event.issue.body }}"
@@ -99,12 +105,16 @@ jobs:
             PUB_GH="true"
             PUB_WX2="true"
             PUB_TOUTIAO="false"
+            PUB_XHS="false"
             # 从 Issue body 解析参数（可选）
             if echo "$BODY" | grep -qi "source:"; then
               SOURCE=$(echo "$BODY" | grep -i "source:" | head -1 | sed 's/.*source:\s*//i' | xargs)
             fi
             if echo "$BODY" | grep -qi "toutiao:\s*true"; then
               PUB_TOUTIAO="true"
+            fi
+            if echo "$BODY" | grep -qi "xiaohongshu:\s*true"; then
+              PUB_XHS="true"
             fi
           fi
           echo "topic=$TOPIC" >> $GITHUB_OUTPUT
@@ -113,6 +123,7 @@ jobs:
           echo "pub_gh=$PUB_GH" >> $GITHUB_OUTPUT
           echo "pub_wx2=$PUB_WX2" >> $GITHUB_OUTPUT
           echo "pub_toutiao=$PUB_TOUTIAO" >> $GITHUB_OUTPUT
+          echo "pub_xhs=$PUB_XHS" >> $GITHUB_OUTPUT
           echo "话题: $TOPIC / 来源: $SOURCE"
       - name: Setup SSH Proxy Tunnel
         env:
@@ -151,6 +162,7 @@ jobs:
           WX_APPSECRET2: ${{ secrets.WX_APPSECRET2 }}
           WX_THUMB_MEDIA_ID2: ${{ secrets.WX_THUMB_MEDIA_ID2 }}
           TOUTIAO_ACCESS_TOKEN: ${{ secrets.TOUTIAO_ACCESS_TOKEN }}
+          XIAOHONGSHU_ACCESS_TOKEN: ${{ secrets.XIAOHONGSHU_ACCESS_TOKEN }}
           DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
           DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
           NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
@@ -173,11 +185,16 @@ jobs:
           if [ "${{ steps.topic.outputs.pub_toutiao }}" = "true" ]; then
             PUB_TOUTIAO_FLAG="--toutiao"
           fi
+          # 小红书 flag 判断：
+          PUB_XHS_FLAG=""
+          if [ "${{ steps.topic.outputs.pub_xhs }}" = "true" ]; then
+            PUB_XHS_FLAG="--xiaohongshu"
+          fi
 
           python tools/gzh_news_writer.py gen \
             "${{ steps.topic.outputs.topic }}" \
             --source "${{ steps.topic.outputs.source }}" \
-            $PUB_WX_FLAG $PUB_GH_FLAG $PUB_WX2_FLAG $PUB_TOUTIAO_FLAG \
+            $PUB_WX_FLAG $PUB_GH_FLAG $PUB_WX2_FLAG $PUB_TOUTIAO_FLAG $PUB_XHS_FLAG \
             --save output.md 2>&1 | tee generate.log
 
       - name: Comment on Issue
