@@ -7,7 +7,7 @@
 #   3. 钉钉触发：钉钉 → Cloudflare Worker → 创建 Issue → 自动触发
 # ============================================================
 
-name: 生成公众号文章
+name: 生成各平台文章
 
 on:
   # 手动触发：在 GitHub Actions 页面点击 Run workflow
@@ -231,6 +231,7 @@ jobs:
               state: 'closed',
               labels: ['generate', 'done']
             });
+
 
 
 
