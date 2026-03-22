@@ -39,7 +39,7 @@ log = logging.getLogger("gzh")
 
 KIMI_API_KEY = os.getenv("KIMI_API_KEY", "")
 KIMI_BASE_URL = os.getenv("KIMI_BASE_URL", "https://api.moonshot.cn/v1")
-KIMI_MODEL = os.getenv("KIMI_MODEL", "kimi-k2.5")
+KIMI_MODEL = os.getenv("KIMI_MODEL", "moonshot-v1-8k")
 
 WX_APPID = os.getenv("WX_APPID", "wxfb63a56ad8ccf4e9")
 WX_APPSECRET = os.getenv("WX_APPSECRET", "f77cfbc5ce0daba5dd517eba43281d75")
@@ -115,6 +115,8 @@ ARTICLE_PROMPT_TEMPLATE = """请先联网搜索「{topic}」的最新新闻（�
 文章字数：1500-2500字。
 
 请直接输出文章内容，不要加任何额外说明。标题单独一行放在最前面。"""
+
+
 def generate_article(topic: str) -> Dict[str, str]:
     client = OpenAI(api_key=KIMI_API_KEY, base_url=KIMI_BASE_URL)
     prompt = ARTICLE_PROMPT_TEMPLATE.format(topic=topic)
@@ -128,7 +130,7 @@ def generate_article(topic: str) -> Dict[str, str]:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
         ],
-        temperature=1,
+        temperature=0.8,
         max_tokens=4096,
         tools=[{"type": "builtin_function", "function": {"name": "$web_search"}}],
         tool_choice="auto",
@@ -140,32 +142,24 @@ def generate_article(topic: str) -> Dict[str, str]:
         raw = choice.message.content.strip()
     else:
         tool_calls = choice.message.tool_calls or []
-
-        # 提取 reasoning_content（kimi-k2.5 思考模型必须带上）
-        reasoning_content = getattr(choice.message, "reasoning_content", None) or ""
-        log.info(f"reasoning_content 长度: {len(reasoning_content)}")
-
-        assistant_msg = {
-            "role": "assistant",
-            "content": choice.message.content or "",
-            "reasoning_content": reasoning_content,
-            "tool_calls": [
-                {
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments,
-                    }
-                }
-                for tc in tool_calls
-            ],
-        }
-
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
-            assistant_msg,
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        }
+                    }
+                    for tc in tool_calls
+                ],
+            },
         ]
         for tc in tool_calls:
             messages.append({
@@ -178,7 +172,7 @@ def generate_article(topic: str) -> Dict[str, str]:
         resp2 = client.chat.completions.create(
             model=KIMI_MODEL,
             messages=messages,
-            temperature=1,
+            temperature=0.8,
             max_tokens=4096,
         )
         raw = resp2.choices[0].message.content.strip()
@@ -197,7 +191,6 @@ def generate_article(topic: str) -> Dict[str, str]:
             continue
         content_lines.append(line)
     return {"title": title, "content": "\n".join(content_lines).strip()}
-
 # ==================== 标签分类 ====================
 
 def auto_tags(topic: str, title: str) -> List[str]:
