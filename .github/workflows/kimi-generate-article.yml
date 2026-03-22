@@ -1,0 +1,202 @@
+# ============================================================
+# 科技马前卒 · 文章自动生成 GitHub Actions Workflow
+#
+# 触发方式：
+#   1. 手动触发：Actions → Run workflow → 输入话题
+#   2. Issue 触发：创建标题为话题的 Issue，加上 "generate" 标签
+#   3. 钉钉触发：钉钉 → Cloudflare Worker → 创建 Issue → 自动触发
+# ============================================================
+
+name: kimi生成公众号文章
+
+on:
+  # 手动触发：在 GitHub Actions 页面点击 Run workflow
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: '话题（如：美联储降息、特朗普关税）'
+        required: true
+        type: string
+      source:
+        description: '主要来源'
+        required: false
+        default: '综合'
+        type: choice
+        options:
+          - 综合
+          - Bloomberg
+          - WSJ
+          - NYT
+          - Economist
+          - Reuters
+          - FT
+      publish_wx:
+        description: '发布到公众号草稿箱'
+        required: false
+        default: true
+        type: boolean
+      publish_wx2:   
+        description: '发布到公众号2（科技马前卒）'
+        required: false
+        default: false
+        type: boolean
+      publish_gh:
+        description: '发布到 GitHub 网站'
+        required: false
+        default: true
+        type: boolean
+
+  # Issue 触发：创建带 "generate" 标签的 Issue
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Issue 触发时只处理带 "generate" 标签的
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && contains(github.event.label.name, 'generate'))
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests openai pysocks "httpx[socks]"
+
+      - name: Determine topic
+        id: topic
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TOPIC="${{ github.event.inputs.topic }}"
+            SOURCE="${{ github.event.inputs.source }}"
+            PUB_WX="${{ github.event.inputs.publish_wx }}"
+            PUB_GH="${{ github.event.inputs.publish_gh }}"
+            PUB_WX2="${{ github.event.inputs.publish_wx2 }}"  # 
+          else
+            TOPIC="${{ github.event.issue.title }}"
+            BODY="${{ github.event.issue.body }}"
+            SOURCE="综合"
+            PUB_WX="true"
+            PUB_GH="true"
+            PUB_WX2="true"                                    # ← 新增
+            # 从 Issue body 解析参数（可选）
+            if echo "$BODY" | grep -qi "source:"; then
+              SOURCE=$(echo "$BODY" | grep -i "source:" | head -1 | sed 's/.*source:\s*//i' | xargs)
+            fi
+          fi
+          echo "topic=$TOPIC" >> $GITHUB_OUTPUT
+          echo "source=$SOURCE" >> $GITHUB_OUTPUT
+          echo "pub_wx=$PUB_WX" >> $GITHUB_OUTPUT
+          echo "pub_gh=$PUB_GH" >> $GITHUB_OUTPUT
+          echo "话题: $TOPIC / 来源: $SOURCE"
+      - name: Setup SSH Proxy Tunnel
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          
+          # 测试连通性（关闭 StrictHostKeyChecking 避免首次连接被拦截）
+          echo "==== 正在测试 SSH 连通性 ===="
+          ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 $SERVER_USER@$SERVER_IP "echo 'SSH 连接成功！'"
+          
+          # 建立后台动态端口转发 (SOCKS5 代理到本地 1080 端口)
+          echo "==== 正在建立 SOCKS5 隧道 ===="
+          ssh -D 1080 -q -C -N -f -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 $SERVER_USER@$SERVER_IP
+          echo "SSH SOCKS5 代理已在本地 1080 端口启动"
+
+
+
+      - name: Generate and publish article
+        env:
+          http_proxy: socks5h://127.0.0.1:1080
+          https_proxy: socks5h://127.0.0.1:1080
+          all_proxy: socks5h://127.0.0.1:1080
+          
+
+          KIMI_API_KEY: ${{ secrets.KIMI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          WX_APPID: ${{ secrets.WX_APPID }}
+          WX_APPSECRET: ${{ secrets.WX_APPSECRET }}
+          WX_THUMB_MEDIA_ID: ${{ secrets.WX_THUMB_MEDIA_ID }}
+          WX_APPID2: ${{ secrets.WX_APPID2 }}
+          WX_APPSECRET2: ${{ secrets.WX_APPSECRET2 }}
+          WX_THUMB_MEDIA_ID2: ${{ secrets.WX_THUMB_MEDIA_ID2 }}
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
+          NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+        run: |
+          PUB_WX_FLAG=""
+          PUB_GH_FLAG=""
+          if [ "${{ steps.topic.outputs.pub_wx }}" = "false" ]; then
+            PUB_WX_FLAG="--no-wx"
+          fi
+          if [ "${{ steps.topic.outputs.pub_gh }}" = "false" ]; then
+            PUB_GH_FLAG="--no-gh"
+          fi
+          # 新增 wx2 flag 判断：
+          PUB_WX2_FLAG=""
+          if [ "${{ steps.topic.outputs.pub_wx2 }}" = "false" ]; then
+            PUB_WX2_FLAG="--no-wx2"
+          fi
+          # python 命令里加上 $PUB_WX2_FLAG
+
+          python tools/gzh_news_writer.py gen \
+            "${{ steps.topic.outputs.topic }}" \
+            --source "${{ steps.topic.outputs.source }}" \
+            $PUB_WX_FLAG $PUB_GH_FLAG \
+            --save output.md 2>&1 | tee generate.log
+
+      - name: Comment on Issue
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let log = '';
+            try { log = fs.readFileSync('generate.log', 'utf8'); } catch(e) {}
+
+            const lines = log.split('\n');
+            const titleLine = lines.find(l => l.includes('标题:'));
+            const urlLine = lines.find(l => l.includes('网站:'));
+            const wxLine = lines.find(l => l.includes('公众号:'));
+
+            let comment = '## ✅ 文章已生成\n\n';
+            if (titleLine) comment += `**${titleLine.trim()}**\n\n`;
+            if (urlLine) comment += `🔗 ${urlLine.trim()}\n\n`;
+            if (wxLine) comment += `📱 ${wxLine.trim()}\n\n`;
+            comment += '<details><summary>运行日志</summary>\n\n```\n' + log.slice(-2000) + '\n```\n</details>';
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              labels: ['generate', 'done']
+            });
+
+
+
