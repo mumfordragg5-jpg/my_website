@@ -157,7 +157,7 @@ jobs:
           fi
           # python 命令里加上 $PUB_WX2_FLAG
 
-          python tools/gzh_news_writer.py gen \
+          python tools/gzh_news_writer_kimi.py gen \
             "${{ steps.topic.outputs.topic }}" \
             --source "${{ steps.topic.outputs.source }}" \
             $PUB_WX_FLAG $PUB_GH_FLAG \
