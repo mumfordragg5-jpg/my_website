@@ -192,7 +192,23 @@ def generate_article(topic: str) -> Dict[str, str]:
             title = s.lstrip("#").strip()
             continue
         content_lines.append(line)
-    return {"title": title, "content": "\n".join(content_lines).strip()}
+    
+    content = "\n".join(content_lines).strip()
+    
+    # 清洗开头的模型思考过程（遇到第一个空行+正文段落之前的废话）
+    # 删掉正文第一个实质段落之前以"让我"、"由于"、"我将"开头的行
+    cleaned_lines = []
+    preamble_done = False
+    for line in content.split("\n"):
+        s = line.strip()
+        if not preamble_done:
+            if s and any(s.startswith(kw) for kw in ["让我", "由于", "我将", "我会", "根据搜索", "搜索结果"]):
+                continue  # 跳过思考过程
+            else:
+                preamble_done = True
+        cleaned_lines.append(line)
+    
+    return {"title": title, "content": "\n".join(cleaned_lines).strip()}
 
 # ==================== 标签分类 ====================
 
