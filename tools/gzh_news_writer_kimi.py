@@ -23,6 +23,8 @@ import time
 import urllib.parse
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from datetime import datetime
+
 
 import requests
 from openai import OpenAI
@@ -59,6 +61,8 @@ GITHUB_BRANCH = os.getenv("GITHUB_BRANCH", "main")
 DINGTALK_WEBHOOK = os.getenv("DINGTALK_WEBHOOK", "")
 DINGTALK_SECRET = os.getenv("DINGTALK_SECRET", "")
 
+today = datetime.now().strftime("%Y年%m月%d日")
+
 TAG_RULES = [
     (["股市", "A股", "美股", "港股", "纳斯达克", "标普", "道琼斯", "stock", "market", "equity"], "市场"),
     (["地缘", "战争", "制裁", "军事", "导弹", "冲突", "中东", "俄乌", "geopolit", "war", "sanction"], "地缘"),
@@ -79,7 +83,8 @@ SYSTEM_PROMPT = (
     "在写作前，请先使用联网搜索工具检索该话题的最新新闻动态，确保文章内容基于真实、最新的信息。"
 )
 
-ARTICLE_PROMPT_TEMPLATE = """请先联网搜索「{topic}」的最新新闻（重点关注最近48小时内的报道），然后基于搜索结果撰写一篇公众号文章。
+# ARTICLE_PROMPT_TEMPLATE = """请先联网搜索「{topic}」的最新新闻（重点关注最近48小时内的报道），然后基于搜索结果撰写一篇公众号文章。
+ARTICLE_PROMPT_TEMPLATE = f"""今天是{today}，请搜索「{{topic}}」最近72小时内的最新新闻，然后基于搜索结果撰写一篇公众号文章。
 
 写作要求：
 
