@@ -61,7 +61,6 @@ GITHUB_BRANCH = os.getenv("GITHUB_BRANCH", "main")
 DINGTALK_WEBHOOK = os.getenv("DINGTALK_WEBHOOK", "")
 DINGTALK_SECRET = os.getenv("DINGTALK_SECRET", "")
 
-today = datetime.now().strftime("%Y年%m月%d日")
 
 TAG_RULES = [
     (["股市", "A股", "美股", "港股", "纳斯达克", "标普", "道琼斯", "stock", "market", "equity"], "市场"),
@@ -125,7 +124,8 @@ ARTICLE_PROMPT_TEMPLATE = """今天是{today}，请搜索「{topic}」最近7天
 
 def generate_article(topic: str) -> Dict[str, str]:
     client = OpenAI(api_key=KIMI_API_KEY, base_url=KIMI_BASE_URL)
-    prompt = ARTICLE_PROMPT_TEMPLATE.format(topic=topic)
+    today = datetime.now().strftime("%Y年%m月%d日")
+    prompt = ARTICLE_PROMPT_TEMPLATE.format(topic=topic, today=today)
 
     log.info(f"Kimi 联网生成中: [{topic}]")
     t0 = time.time()
