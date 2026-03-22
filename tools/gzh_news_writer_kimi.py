@@ -39,7 +39,7 @@ log = logging.getLogger("gzh")
 
 KIMI_API_KEY = os.getenv("KIMI_API_KEY", "")
 KIMI_BASE_URL = os.getenv("KIMI_BASE_URL", "https://api.moonshot.cn/v1")
-KIMI_MODEL = os.getenv("KIMI_MODEL", "moonshot-v1-8k")
+KIMI_MODEL = os.getenv("KIMI_MODEL", "kimi-k2.5")
 
 WX_APPID = os.getenv("WX_APPID", "wxfb63a56ad8ccf4e9")
 WX_APPSECRET = os.getenv("WX_APPSECRET", "f77cfbc5ce0daba5dd517eba43281d75")
@@ -116,7 +116,6 @@ ARTICLE_PROMPT_TEMPLATE = """请先联网搜索「{topic}」的最新新闻（�
 
 请直接输出文章内容，不要加任何额外说明。标题单独一行放在最前面。"""
 
-
 def generate_article(topic: str) -> Dict[str, str]:
     client = OpenAI(api_key=KIMI_API_KEY, base_url=KIMI_BASE_URL)
     prompt = ARTICLE_PROMPT_TEMPLATE.format(topic=topic)
@@ -130,13 +129,15 @@ def generate_article(topic: str) -> Dict[str, str]:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
         ],
-        temperature=0.8,
+        temperature=1,
         max_tokens=4096,
+        extra_body={"thinking": {"type": "disabled"}},
         tools=[{"type": "builtin_function", "function": {"name": "$web_search"}}],
         tool_choice="auto",
     )
 
     choice = resp.choices[0]
+    log.info(f"第一轮 finish_reason={choice.finish_reason}, tool_calls={bool(choice.message.tool_calls)}")
 
     if choice.message.content:
         raw = choice.message.content.strip()
@@ -172,8 +173,9 @@ def generate_article(topic: str) -> Dict[str, str]:
         resp2 = client.chat.completions.create(
             model=KIMI_MODEL,
             messages=messages,
-            temperature=0.8,
+            temperature=1,
             max_tokens=4096,
+            extra_body={"thinking": {"type": "disabled"}},
         )
         raw = resp2.choices[0].message.content.strip()
 
@@ -191,6 +193,7 @@ def generate_article(topic: str) -> Dict[str, str]:
             continue
         content_lines.append(line)
     return {"title": title, "content": "\n".join(content_lines).strip()}
+
 # ==================== 标签分类 ====================
 
 def auto_tags(topic: str, title: str) -> List[str]:
