@@ -131,7 +131,7 @@ def generate_article(topic: str) -> Dict[str, str]:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
         ],
-        temperature=0.8,
+        temperature=1,
         max_tokens=4096,
         # Kimi 联网插件：传入 tools 即可启用
         tools=[{"type": "builtin_function", "function": {"name": "$web_search"}}],
@@ -163,7 +163,7 @@ def generate_article(topic: str) -> Dict[str, str]:
         resp2 = client.chat.completions.create(
             model=KIMI_MODEL,
             messages=messages,
-            temperature=0.8,
+            temperature=1,
             max_tokens=4096,
         )
         raw = resp2.choices[0].message.content.strip()
