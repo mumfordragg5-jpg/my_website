@@ -84,7 +84,9 @@ SYSTEM_PROMPT = (
 )
 
 # ARTICLE_PROMPT_TEMPLATE = """请先联网搜索「{topic}」的最新新闻（重点关注最近48小时内的报道），然后基于搜索结果撰写一篇公众号文章。
-ARTICLE_PROMPT_TEMPLATE = f"""今天是{today}，请搜索「{{topic}}」最近72小时内的最新新闻，然后基于搜索结果撰写一篇公众号文章。
+ARTICLE_PROMPT_TEMPLATE = """今天是{today}，请搜索「{topic}」最近7天内的最新新闻。
+
+**重要：文章中引用的所有数据、日期、事件必须来自{today}前7天内的真实报道。如果搜索不到近期相关新闻，请如实说明，不要使用旧数据或编造数据。**
 
 写作要求：
 
