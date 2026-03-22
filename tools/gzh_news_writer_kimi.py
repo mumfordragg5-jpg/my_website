@@ -129,7 +129,7 @@ def generate_article(topic: str) -> Dict[str, str]:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
         ],
-        temperature=1,
+        temperature=0.6,
         max_tokens=4096,
         extra_body={"thinking": {"type": "disabled"}},
         tools=[{"type": "builtin_function", "function": {"name": "$web_search"}}],
@@ -173,7 +173,7 @@ def generate_article(topic: str) -> Dict[str, str]:
         resp2 = client.chat.completions.create(
             model=KIMI_MODEL,
             messages=messages,
-            temperature=1,
+            temperature=0.6,
             max_tokens=4096,
             extra_body={"thinking": {"type": "disabled"}},
         )
