@@ -209,7 +209,7 @@ def generate_article(topic: str) -> Dict[str, str]:
     for line in content.split("\n"):
         s = line.strip()
         if not preamble_done:
-            if s and any(s.startswith(kw) for kw in ["让我", "由于", "我将", "我会", "根据搜索", "搜索结果"]):
+            if s and any(s.startswith(kw) for kw in ["让我", "由于", "我将", "我会", "根据搜索", "搜索结果", "抱歉", "很抱歉", "无法联网", "基于您"]):
                 continue  # 跳过思考过程
             else:
                 preamble_done = True
