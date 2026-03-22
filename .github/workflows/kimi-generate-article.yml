@@ -33,12 +33,12 @@ on:
       publish_wx:
         description: '发布到公众号草稿箱'
         required: false
-        default: true
+        default: false
         type: boolean
       publish_wx2:   
         description: '发布到公众号2（科技马前卒）'
         required: false
-        default: false
+        default: true
         type: boolean
       publish_gh:
         description: '发布到 GitHub 网站'
