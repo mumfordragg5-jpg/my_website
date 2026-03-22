@@ -136,7 +136,13 @@ def generate_article(topic: str) -> Dict[str, str]:
         tool_choice="auto",
     )
 
-    # 直接取最后一个 choice 的 content，kimi-k2.5 会在同一响应里完成搜索+生成
+    # 打印完整响应结构，看看返回了什么
+    log.info(f"响应 choices 数量: {len(resp.choices)}")
+    for i, choice in enumerate(resp.choices):
+        log.info(f"choice[{i}] finish_reason={choice.finish_reason}")
+        log.info(f"choice[{i}] content={repr(choice.message.content)}")
+        log.info(f"choice[{i}] tool_calls={choice.message.tool_calls}")
+
     raw = ""
     for choice in resp.choices:
         if choice.message.content:
