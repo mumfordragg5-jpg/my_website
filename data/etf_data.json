@@ -1,5 +1,5 @@
 {
-  "update_time": "2026-05-28 15:21:59",
+  "update_time": "2026-05-28 15:34:26",
   "today_target": {
     "code": "588000",
     "name": "科创50 ETF",
@@ -9,10 +9,10 @@
   },
   "last_target_code": "588000",
   "backtest_stats": {
-    "total_return": "+470.56%",
-    "annual_return": "+26.74%",
-    "max_drawdown": "-27.51%",
-    "sharpe_ratio": "0.82"
+    "total_return": "+514.47%",
+    "annual_return": "+28.03%",
+    "max_drawdown": "-27.91%",
+    "sharpe_ratio": "0.85"
   },
   "all_etfs": [
     {
@@ -337,22 +337,6 @@
     },
     {
       "rank": 21,
-      "code": "516120",
-      "name": "化工 ETF",
-      "price": 0.909,
-      "bias": -5.08,
-      "pct_5": -2.47,
-      "pct_10": -6.86,
-      "pct_20": -9.64,
-      "score": -6.98,
-      "trend": "空头",
-      "liquid": true,
-      "avg_amt_wan": 16405.411519999998,
-      "is_filtered": true,
-      "is_target": false
-    },
-    {
-      "rank": 22,
       "code": "515210",
       "name": "钢铁 ETF",
       "price": 1.29,
@@ -368,7 +352,7 @@
       "is_target": false
     },
     {
-      "rank": 23,
+      "rank": 22,
       "code": "159605",
       "name": "纳斯达克100 ETF",
       "price": 0.818,
@@ -384,7 +368,7 @@
       "is_target": false
     },
     {
-      "rank": 24,
+      "rank": 23,
       "code": "159869",
       "name": "游戏 ETF",
       "price": 1.157,
