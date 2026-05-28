@@ -257,16 +257,52 @@ def send_dingtalk_markdown(webhook_url: str, title: str, text_content: str) -> N
 # ────────────────────────────────────────────────────────
 # 5. 持久化与换仓状态比对
 # ────────────────────────────────────────────────────────
+def find_website_dir() -> Path:
+    """寻找 my_website 项目根目录，确保兼容多种执行路径"""
+    # 1. 如果当前目录下有 index.html 且有 data 目录，说明当前工作目录就是 my_website
+    cwd = Path(".")
+    if (cwd / "index.html").exists() and (cwd / "data").exists():
+        return cwd
+    # 2. 如果父目录下有 index.html 且有 data 目录，说明当前是在 scripts 目录中运行
+    parent = Path("..")
+    if (parent / "index.html").exists() and (parent / "data").exists():
+        return parent
+    # 3. 指定默认的绝对路径
+    abs_path = Path("d:/work_doc/python_project/my_website")
+    if abs_path.exists():
+        return abs_path
+    # 4. 默认的相对路径
+    return Path("../my_website")
+
+
 STATE_FILE = Path("last_state.json")
 
 
-def load_last_target() -> Optional[str]:
+def load_last_target(website_dir: Optional[Path] = None) -> Optional[str]:
     """读取上一次的目标持仓代码"""
+    # 1. 优先从网站的 data/etf_data.json 读取，这在 GitHub Actions 等无状态环境下非常有用
+    if website_dir:
+        json_file = website_dir / "data" / "etf_data.json"
+        if json_file.exists():
+            try:
+                with open(json_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    val = data.get("today_target", {}).get("code")
+                    if val:
+                        logging.info("从现有 etf_data.json 成功读取历史持仓: %s", val)
+                        return val
+            except Exception as e:
+                logging.warning("读取 etf_data.json 历史状态失败: %s", e)
+
+    # 2. 备用：从本地临时状态文件读取
     if STATE_FILE.exists():
         try:
             with open(STATE_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                return data.get("target_code")
+                val = data.get("target_code")
+                if val:
+                    logging.info("从 last_state.json 成功读取历史持仓: %s", val)
+                    return val
         except Exception:
             pass
     return None
@@ -282,6 +318,7 @@ def save_current_target(code: Optional[str]) -> None:
 
 
 # ────────────────────────────────────────────────────────
+
 # 6. 分析与推送控制中心
 # ────────────────────────────────────────────────────────
 def save_and_publish_etf_data(scores_df: pd.DataFrame, today_target_code: Optional[str], today_target_name: Optional[str], today_target_price: Optional[float], last_target_code: Optional[str], signal_title: str, signal_desc: str, no_publish: bool) -> None:
@@ -333,12 +370,7 @@ def save_and_publish_etf_data(scores_df: pd.DataFrame, today_target_code: Option
         }
         
         # 3. 确定写入的物理路径
-        # 由于当前脚本在 d:/work_doc/python_project/QuantumETF
-        # 网站项目被克隆在 d:/work_doc/python_project/my_website
-        website_dir = Path("d:/work_doc/python_project/my_website")
-        if not website_dir.exists():
-            # 兼容相对路径放置
-            website_dir = Path("../my_website")
+        website_dir = find_website_dir()
             
         if not website_dir.exists():
             logging.warning("未找到 my_website 项目文件夹，跳过 JSON 数据输出与发布。")
@@ -425,7 +457,8 @@ def run_analysis_and_notify(webhook_url: str, no_publish: bool = False) -> None:
         logging.warning("今日候选池无满足多头趋势的标的，策略将全仓空仓。")
         
     # 6. 读取昨日状态，判断是否触发【调仓换股信号】
-    last_target_code = load_last_target()
+    website_dir = find_website_dir()
+    last_target_code = load_last_target(website_dir if website_dir.exists() else None)
     
     signal_title = "持仓保持"
     signal_desc = "📈 今日暂无调仓指令，**继续持有**原标的。"
@@ -542,11 +575,11 @@ def main() -> None:
     args = parser.parse_args()
     
     # 配置日志
-    # log_format = "%(asctime)s [%(levelname)s] %(message)s"
-    # logging.basicConfig(level=logging.INFO, format=log_format, handlers=[
-    #     logging.StreamHandler(sys.stdout),
-    #     logging.FileHandler("logs/quantum_etf_dingtalk.log", encoding="utf-8") if os.path.exists("logs") else logging.NullHandler()
-    # ])
+    log_format = "%(asctime)s [%(levelname)s] %(message)s"
+    logging.basicConfig(level=logging.INFO, format=log_format, handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler("logs/quantum_etf_dingtalk.log", encoding="utf-8")
+    ])
     
     # 创建日志文件夹
     Path("logs").mkdir(exist_ok=True)
