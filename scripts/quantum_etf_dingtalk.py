@@ -209,7 +209,7 @@ def compute_scores(bars_dict: dict[str, pd.DataFrame], quotes: dict[str, dict]) 
         trend = "多头" if ema20 > ema60 else ("空头" if ema20 < ema60 else "震荡")
         
         # Score = 0.4*bias + 0.3*pct10 + 0.3*pct20
-        score = round(0.4 * bias + 0.3 * pct10 + 0.3 * pct20, 2)
+        score = round(0.6 * bias + 0.2 * pct10 + 0.2 * pct20, 2)
         
         rows.append({
             "code": code,
