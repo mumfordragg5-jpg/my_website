@@ -11,6 +11,8 @@ on:
 jobs:
   update-etf:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     # 1. 检出 my_website 仓库的代码
