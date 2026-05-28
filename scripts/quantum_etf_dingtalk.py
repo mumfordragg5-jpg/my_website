@@ -168,11 +168,19 @@ def compute_scores(bars_dict: dict[str, pd.DataFrame], quotes: dict[str, dict]) 
             continue
             
         close = df["close"].copy()
-        # 融入今日盘中实时最新价
+        # 融入今日盘中实时最新价，需注意如果最后一根K线尚未更新到今日（比如刚收盘不久或盘中），应当在末尾追加今日的实时价
         q = quotes.get(code, {})
         realtime_p = q.get("price")
         if realtime_p:
-            close.iloc[-1] = realtime_p
+            last_date = pd.to_datetime(df["datetime"].iloc[-1]).date()
+            today_date = datetime.now().date()
+            if last_date == today_date:
+                # 最后一根 K 线已经是今天，直接更新
+                close.iloc[-1] = realtime_p
+            else:
+                # 最后一根 K 线还是昨天，将今天的数据追加到末尾，确保均线和多天涨幅计算精度完全正确
+                new_row = pd.Series([realtime_p], index=[len(close)])
+                close = pd.concat([close, new_row]).reset_index(drop=True)
             
         # 计算均线
         ema20 = close.ewm(span=20, adjust=False).mean().iloc[-1]
