@@ -48,7 +48,7 @@ DEFAULT_ETF_LIST: list[tuple[str, int]] = [
     ("512880", 1), ("515000", 1), ("159915", 0), ("159949", 0),
     ("159938", 0), ("159928", 0), ("159920", 0), ("159605", 0),
     ("515210", 1), ("512760", 1), ("515220", 1), ("515790", 1),
-    ("159869", 0), ("512400", 1), ("512800", 1), ("516120", 1),
+    ("159869", 0), ("512400", 1), ("512800", 1), # ("516120", 1),
 ]
 
 ETF_NAME_MAP = {
@@ -60,7 +60,7 @@ ETF_NAME_MAP = {
     "159605": "纳斯达克100 ETF",
     "515210": "钢铁 ETF",     "512760": "半导体 ETF",   "515220": "煤炭 ETF",
     "515790": "光伏 ETF",     "159869": "游戏 ETF",     "512400": "有色 ETF",
-    "512800": "银行 ETF",     "516120": "化工 ETF",
+    "512800": "银行 ETF",     # "516120": "化工 ETF",
 }
 
 MOOTDX_SERVERS = [
@@ -369,10 +369,10 @@ def save_and_publish_etf_data(scores_df: pd.DataFrame, today_target_code: Option
             },
             "last_target_code": last_target_code,
             "backtest_stats": {
-                "total_return": "+470.56%",
-                "annual_return": "+26.74%",
-                "max_drawdown": "-27.51%",
-                "sharpe_ratio": "0.82"
+                "total_return": "+514.47%",
+                "annual_return": "+28.03%",
+                "max_drawdown": "-27.91%",
+                "sharpe_ratio": "0.85"
             },
             "all_etfs": all_etfs
         }
