@@ -574,15 +574,15 @@ def main() -> None:
     
     args = parser.parse_args()
     
+    # 创建日志文件夹
+    Path("logs").mkdir(exist_ok=True)
+    
     # 配置日志
     log_format = "%(asctime)s [%(levelname)s] %(message)s"
     logging.basicConfig(level=logging.INFO, format=log_format, handlers=[
         logging.StreamHandler(sys.stdout),
         logging.FileHandler("logs/quantum_etf_dingtalk.log", encoding="utf-8")
     ])
-    
-    # 创建日志文件夹
-    Path("logs").mkdir(exist_ok=True)
     
     # 重配置 stdout 编码，防止 Windows 中文乱码
     try:
