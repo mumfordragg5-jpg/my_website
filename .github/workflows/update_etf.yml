@@ -1,0 +1,47 @@
+name: Update ETF Data
+
+on:
+  # 支持手动在 GitHub Actions 页面点击 "Run workflow" 刷新数据
+  workflow_dispatch:
+
+  # 自动定时刷新：每天北京时间周一至周五 15:15 分运行 (UTC 07:15)
+  schedule:
+    - cron: '15 7 * * 1-5'
+
+jobs:
+  update-etf:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. 检出 my_website 仓库的代码
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    # 2. 配置 Python 3.10 环境
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    # 3. 安装脚本执行所需的依赖库
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas requests mootdx
+
+    # 4. 执行选股决策分析并生成静态 JSON
+    # 使用 --no-publish 选项防止脚本内部重复调用本地 Git 推送，全部交由后置 Actions 步骤安全完成
+    - name: Run ETF Quant Model
+      run: |
+        python scripts/quantum_etf_dingtalk.py --once --no-publish
+
+    # 5. 将新生成的 etf_data.json 提交并安全推送回本仓库
+    - name: Commit & Push changes
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add data/etf_data.json
+        # 如果文件没有变化，则跳过 commit，防止 Action 任务因无改动提交而报错中止
+        git diff-index --quiet HEAD || git commit -m "auto: update etf data via Actions"
+        git push
