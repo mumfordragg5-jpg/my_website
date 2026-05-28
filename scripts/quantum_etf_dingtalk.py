@@ -497,9 +497,22 @@ def run_analysis_and_notify(webhook_url: str, no_publish: bool = False) -> None:
     save_current_target(today_target_code)
     
     # 8. 生成排行榜 Markdown 文本
-    # 取全部标的前 5 名，或者未过滤前的全部标的前 5 名以展示全貌
+    # 过滤出符合条件的标的，展示有效的多头候选池排行榜，使“持有第二名”的视觉排名更直观
     all_sorted = scores_df.sort_values(by="score", ascending=False).reset_index(drop=True)
-    top_5 = all_sorted.head(5)
+    
+    # 找出被过滤掉的高评分标的（排在有效多头第一名之前的被过滤排除标的）
+    filtered_out_high_scores = []
+    first_valid_score = filtered_df.iloc[0]["score"] if not filtered_df.empty else -999.0
+    for idx, r in all_sorted.iterrows():
+        if r["score"] > first_valid_score:
+            if not (r["liquid"] and r["trend"] == "多头"):
+                reason = "流动性不足" if not r["liquid"] else "空头趋势"
+                filtered_out_high_scores.append(f"`{r['name']} ({r['code']})` ({r['score']:.2f}分, 因{reason}被排除)")
+        else:
+            break
+            
+    # 排行榜只展示符合条件的有效多头趋势标的前 5 名
+    top_5 = filtered_df.head(5)
     
     # 构建等宽文本表格
     header = "排名 代码   名称          现价  偏离率  10日%  评分  趋势\n"
@@ -524,8 +537,13 @@ def run_analysis_and_notify(webhook_url: str, no_publish: bool = False) -> None:
         row_line = f"{is_target}{rank:<2} {code} {name} {price:>5} {bias:>5} {pct10:>5} {score:>5}  {trend_icon}\n"
         rows.append(row_line)
         
-    table_text = header + divider + "".join(rows)
+    table_text = header + divider + "".join(rows) if rows else "(今日无满足多头趋势的标的)\n"
     
+    # 高分排除备注
+    filter_note = ""
+    if filtered_out_high_scores:
+        filter_note = "\n⚠️ **今日高分排除**：\n" + "\n".join([f"- {x}" for x in filtered_out_high_scores]) + "\n"
+        
     # 9. 构建发送给钉钉的最终 Markdown 消息
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     target_display = f"`{today_target_name} ({today_target_code})`" if today_target_code else "⚠️ **今日空仓避险**"
@@ -538,10 +556,11 @@ def run_analysis_and_notify(webhook_url: str, no_publish: bool = False) -> None:
         f"### 🔔 信号决策：**【{signal_title}】**\n"
         f"{signal_desc}\n\n"
         f"--- \n"
-        f"### 📈 今日动量排行榜 TOP 5 (★表策略选中)\n"
+        f"### 📈 今日多头动量排行榜 (★表策略选中)\n"
         f"```text\n"
         f"{table_text}"
         f"```\n"
+        f"{filter_note}"
         f"【策略规则】：只持有多头趋势 (`EMA20 > EMA60`) 的 **第二名**。第一名超买严重，予以跳过。\n"
     )
     
