@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QuantumETF 动量选股 | 科技马前卒</title>
+  <meta name="description" content="基于量化动量评分模型，每日收盘前全自动生成最优 ETF 持仓决策，汰弱留强，捕捉高弹性行业周期超额复利。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏇</text></svg>">
+  <style>
+    /* ETF 选股页面定制的高级样式 (充分复用 style.css 变量) */
+    .etf-container {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    .etf-hero {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .etf-hero-title {
+      font-size: 2.5rem;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, var(--accent), #ff9a76);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .etf-hero-subtitle {
+      font-size: 1.05rem;
+      color: var(--text-secondary);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* 仪表盘布局：两列 */
+    .etf-dashboard {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 32px;
+      margin-bottom: 48px;
+    }
+
+    @media (max-width: 768px) {
+      .etf-dashboard {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 通用高级卡片样式 */
+    .etf-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      box-shadow: var(--shadow-md);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: all var(--transition);
+    }
+
+    .etf-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--accent);
+    }
+
+    /* 左侧：信号大本营 */
+    .signal-status-box {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .signal-badge {
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 20px;
+      letter-spacing: 0.05em;
+    }
+
+    /* 不同的决策决策配色 */
+    .signal-buy {
+      background: rgba(7, 193, 96, 0.12);
+      color: #07c160;
+      border: 1px solid rgba(7, 193, 96, 0.2);
+    }
+    .signal-hold {
+      background: rgba(232, 93, 58, 0.12);
+      color: var(--accent);
+      border: 1px solid rgba(232, 93, 58, 0.2);
+    }
+    .signal-sell {
+      background: rgba(224, 60, 60, 0.12);
+      color: #e03c3c;
+      border: 1px solid rgba(224, 60, 60, 0.2);
+    }
+    .signal-empty {
+      background: rgba(136, 136, 160, 0.12);
+      color: var(--text-secondary);
+      border: 1px solid rgba(136, 136, 160, 0.2);
+    }
+
+    .signal-title-text {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+
+    .signal-desc-text {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      line-height: 1.8;
+      margin-bottom: 24px;
+      flex: 1;
+    }
+
+    .target-asset-card {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .target-asset-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .target-asset-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .target-asset-name {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+
+    .target-asset-code {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-left: 6px;
+      font-weight: normal;
+    }
+
+    .target-asset-value {
+      text-align: right;
+    }
+
+    .target-asset-price {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+
+    /* 右侧：绩效展示 */
+    .perf-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .perf-item {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .perf-value {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--accent);
+      margin-bottom: 2px;
+    }
+
+    .perf-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .perf-hint {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 20px;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    /* 排行榜面板 */
+    .rankings-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 24px 32px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .panel-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+
+    .panel-meta {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .panel-filters {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* 排行榜表格 */
+    .table-container {
+      overflow-x: auto;
+      width: 100%;
+    }
+
+    .rank-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+
+    .rank-table th {
+      background: var(--bg-primary);
+      padding: 16px 24px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+      white-space: nowrap;
+    }
+
+    .rank-table td {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-primary);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .rank-table tbody tr {
+      transition: background var(--transition);
+    }
+
+    .rank-table tbody tr:hover {
+      background: rgba(232, 93, 58, 0.02);
+    }
+
+    [data-theme="dark"] .rank-table tbody tr:hover {
+      background: rgba(255, 111, 74, 0.02);
+    }
+
+    /* 推荐的第二名特殊高亮 */
+    .rank-table tbody tr.row-target {
+      background: var(--accent-light);
+    }
+
+    .rank-table tbody tr.row-target td {
+      font-weight: 600;
+    }
+
+    .row-filtered {
+      opacity: 0.55;
+    }
+
+    .badge-target {
+      display: inline-flex;
+      align-items: center;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+      animation: pulse 2s infinite;
+    }
+
+    .badge-filtered {
+      display: inline-flex;
+      align-items: center;
+      background: var(--border);
+      color: var(--text-muted);
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+
+    /* EMA多头空头彩色球 */
+    .trend-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+
+    .trend-bullish {
+      background-color: #07c160;
+      box-shadow: 0 0 8px rgba(7,193,96,0.5);
+    }
+
+    .trend-bearish {
+      background-color: #e03c3c;
+      box-shadow: 0 0 8px rgba(224,60,60,0.5);
+    }
+
+    /* 进度条显示动量得分 */
+    .score-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 120px;
+    }
+
+    .score-num {
+      width: 44px;
+      font-family: monospace;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .score-bar-bg {
+      flex: 1;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .score-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.8s ease;
+    }
+
+    .fill-positive {
+      background: linear-gradient(90deg, var(--accent), #ff9a76);
+    }
+
+    .fill-negative {
+      background: #8888a0;
+    }
+
+    /* 骨架屏加载状态 */
+    .skeleton {
+      background: linear-gradient(90deg, var(--border) 25%, var(--bg-primary) 50%, var(--border) 75%);
+      background-size: 200% 100%;
+      animation: loading 1.5s infinite;
+      border-radius: 4px;
+      color: transparent !important;
+    }
+
+    .skeleton-text {
+      height: 16px;
+      width: 80%;
+      display: inline-block;
+    }
+
+    @keyframes loading {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(232, 93, 58, 0.4); }
+      70% { box-shadow: 0 0 0 6px rgba(232, 93, 58, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(232, 93, 58, 0); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="site-header">
+    <nav class="nav-inner">
+      <a href="index.html" class="site-logo">
+        <span class="logo-icon">🏇</span>科技马前卒
+      </a>
+      <div class="nav-right">
+        <ul class="nav-links" id="navLinks">
+          <li><a href="index.html">首页</a></li>
+          <li><a href="etf.html" class="nav-active">量化选股</a></li>
+          <li><a href="index.html#articles">文章</a></li>
+          <li><a href="index.html#about">关于</a></li>
+        </ul>
+        <button class="theme-toggle" id="themeToggle" aria-label="切换主题">🌙</button>
+        <button class="menu-toggle" id="menuToggle" aria-label="菜单">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Container -->
+  <main class="etf-container">
+    
+    <!-- Hero -->
+    <div class="etf-hero">
+      <div class="hero-badge">QuantumETF 动量选股系统</div>
+      <h1 class="etf-hero-title">捕捉行业周期超额复利</h1>
+      <p class="etf-hero-subtitle">
+        基于趋势强度与多周期偏离率算法，每日收盘前10分钟自动计算大宽表。追涨不杀跌，汰弱留强。
+      </p>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="etf-dashboard">
+      
+      <!-- 决策大本营 -->
+      <div class="etf-card" id="decisionCard">
+        <div class="signal-status-box">
+          <span class="signal-badge skeleton skeleton-text" style="width: 70px;"></span>
+          <span class="signal-title-text skeleton skeleton-text" style="width: 120px;"></span>
+        </div>
+        <p class="signal-desc-text skeleton-text skeleton" style="width: 90%; height: 54px; margin-bottom: 24px;"></p>
+        
+        <div class="target-asset-card">
+          <div class="target-asset-info">
+            <span class="target-asset-label">当前策略推荐持仓</span>
+            <div class="target-asset-name skeleton skeleton-text" style="width: 160px;"></div>
+          </div>
+          <div class="target-asset-value">
+            <span class="target-asset-price skeleton skeleton-text" style="width: 80px;"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 历史实证绩效 -->
+      <div class="etf-card" style="border-left-color: #8888a0;">
+        <h3 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 12px;">7年历史实证绩效 (2019-2026)</h3>
+        <div class="perf-grid">
+          <div class="perf-item">
+            <div class="perf-value" style="color: #07c160;">+470.56%</div>
+            <div class="perf-label">累计收益率</div>
+          </div>
+          <div class="perf-item">
+            <div class="perf-value">+26.74%</div>
+            <div class="perf-label">年化收益率</div>
+          </div>
+          <div class="perf-item">
+            <div class="perf-value" style="color: #e03c3c;">-27.51%</div>
+            <div class="perf-label">历史最大回撤</div>
+          </div>
+          <div class="perf-item">
+            <div class="perf-value">0.82</div>
+            <div class="perf-label">夏普比率 (Sharpe)</div>
+          </div>
+        </div>
+        <p class="perf-hint">
+          * 指标基于统一对齐后的 24 只行业 ETF 标的池（含钢铁、化工等强Beta周期行业），以万0.85佣金摩擦率每日轮动回测得出。
+        </p>
+      </div>
+
+    </div>
+
+    <!-- Rankings Panel -->
+    <div class="rankings-panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">今日动量综合排行榜</h2>
+          <span class="panel-meta" id="updateTime">正在同步最新行情数据...</span>
+        </div>
+        <div class="panel-filters">
+          <button class="filter-btn active" id="btnFilterAll">全部 ETF (24)</button>
+          <button class="filter-btn" id="btnFilterBullish">🟢 仅看多头趋势</button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="rank-table" id="rankTable">
+          <thead>
+            <tr>
+              <th style="width: 60px;">排名</th>
+              <th style="width: 100px;">代码</th>
+              <th>证券名称</th>
+              <th style="text-align: right;">当前价</th>
+              <th style="text-align: right;">今日涨幅</th>
+              <th style="text-align: right;">偏离度 (EMA20)</th>
+              <th style="text-align: right;">20日涨幅</th>
+              <th style="text-align: center;">动量综合得分</th>
+              <th style="text-align: center;">趋势状态</th>
+            </tr>
+          </thead>
+          <tbody id="rankTableBody">
+            <!-- 骨架屏预占位 (6行) -->
+            <tr class="row-skeleton">
+              <td><div class="skeleton skeleton-text" style="width: 20px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 100px; margin: 0 auto;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px; margin: 0 auto;"></div></td>
+            </tr>
+            <tr class="row-skeleton">
+              <td><div class="skeleton skeleton-text" style="width: 20px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 100px; margin: 0 auto;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px; margin: 0 auto;"></div></td>
+            </tr>
+            <tr class="row-skeleton">
+              <td><div class="skeleton skeleton-text" style="width: 20px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 100px; margin: 0 auto;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px; margin: 0 auto;"></div></td>
+            </tr>
+            <tr class="row-skeleton">
+              <td><div class="skeleton skeleton-text" style="width: 20px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 100px; margin: 0 auto;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px; margin: 0 auto;"></div></td>
+            </tr>
+            <tr class="row-skeleton">
+              <td><div class="skeleton skeleton-text" style="width: 20px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 100px; margin: 0 auto;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px; margin: 0 auto;"></div></td>
+            </tr>
+            <tr class="row-skeleton">
+              <td><div class="skeleton skeleton-text" style="width: 20px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 120px;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 50px; float: right;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 100px; margin: 0 auto;"></div></td>
+              <td><div class="skeleton skeleton-text" style="width: 60px; margin: 0 auto;"></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="logo-icon">🏇</span>
+        <span>科技马前卒</span>
+      </div>
+      <ul class="footer-links">
+        <li><a href="index.html">首页</a></li>
+        <li><a href="etf.html">量化选股</a></li>
+        <li><a href="index.html#articles">文章</a></li>
+        <li><a href="index.html#about">关于</a></li>
+      </ul>
+      <p class="footer-copy">&copy; 2026 科技马前卒 · 帮中国人读懂西方财经头条</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+  <script src="js/etf.js"></script>
+</body>
+</html>
