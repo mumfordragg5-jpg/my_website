@@ -134,7 +134,7 @@ function renderRankingsTable() {
   if (listToRender.length === 0) {
     tableBody.innerHTML = `
       <tr>
-        <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 40px 0;">
+        <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 40px 0;">
           当前没有符合 EMA 多头趋势且流动性充裕的标的。
         </td>
       </tr>
@@ -182,17 +182,23 @@ function renderRankingsTable() {
     `;
 
     // 涨跌幅染色
-    const chg5 = item.pct_5;
+    const chg1 = item.pct_1 !== undefined ? item.pct_1 : null;
+    const colorChg1 = chg1 > 0 ? '#e03c3c' : (chg1 < 0 ? '#07c160' : 'inherit');
+    const chg5 = item.pct_5 !== undefined ? item.pct_5 : null;
     const colorChg5 = chg5 > 0 ? '#e03c3c' : (chg5 < 0 ? '#07c160' : 'inherit');
     const chg20 = item.pct_20;
     const colorChg20 = chg20 > 0 ? '#e03c3c' : (chg20 < 0 ? '#07c160' : 'inherit');
+
+    const chg1Text = chg1 !== null ? `${chg1 > 0 ? '+' : ''}${chg1.toFixed(2)}%` : '--';
+    const chg5Text = chg5 !== null ? `${chg5 > 0 ? '+' : ''}${chg5.toFixed(2)}%` : '--';
 
     tr.innerHTML = `
       <td style="font-weight: 700;">${index + 1}</td>
       <td style="font-family: monospace;">${item.code}</td>
       <td>${item.name}${badgeHtml}</td>
       <td style="text-align: right; font-weight: 600;">${item.price.toFixed(3)}</td>
-      <td style="text-align: right; color: ${colorChg5};">${chg5 > 0 ? '+' : ''}${chg5.toFixed(2)}%</td>
+      <td style="text-align: right; color: ${colorChg1};">${chg1Text}</td>
+      <td style="text-align: right; color: ${colorChg5};">${chg5Text}</td>
       <td style="text-align: right; color: ${item.bias > 0 ? '#e03c3c' : (item.bias < 0 ? '#07c160' : 'inherit')};">${item.bias > 0 ? '+' : ''}${item.bias.toFixed(2)}%</td>
       <td style="text-align: right; color: ${colorChg20}; font-weight: 600;">${chg20 > 0 ? '+' : ''}${chg20.toFixed(2)}%</td>
       <td><div style="display: flex; justify-content: center;">${progressBarHtml}</div></td>
@@ -220,7 +226,7 @@ function showErrorMessage(message) {
   if (tableBody) {
     tableBody.innerHTML = `
       <tr>
-        <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 60px 0;">
+        <td colspan="10" style="text-align: center; color: var(--text-muted); padding: 60px 0;">
           等待每日最新收盘行情导入...
         </td>
       </tr>

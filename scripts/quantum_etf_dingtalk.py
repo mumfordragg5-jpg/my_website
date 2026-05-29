@@ -196,6 +196,7 @@ def compute_scores(bars_dict: dict[str, pd.DataFrame], quotes: dict[str, dict]) 
             past = series.iloc[-(period + 1)]
             return round((series.iloc[-1] / past - 1) * 100, 2) if past > 0 else 0.0
             
+        pct1 = get_pct(close, 1)
         pct5 = get_pct(close, 5)
         pct10 = get_pct(close, 10)
         pct20 = get_pct(close, 20)
@@ -216,6 +217,7 @@ def compute_scores(bars_dict: dict[str, pd.DataFrame], quotes: dict[str, dict]) 
             "name": ETF_NAME_MAP.get(code, code),
             "price": close.iloc[-1],
             "bias": bias,
+            "pct_1": pct1,
             "pct_5": pct5,
             "pct_10": pct10,
             "pct_20": pct20,
@@ -346,6 +348,7 @@ def save_and_publish_etf_data(scores_df: pd.DataFrame, today_target_code: Option
                 "name": r["name"],
                 "price": float(r["price"]),
                 "bias": float(r["bias"]),
+                "pct_1": float(r["pct_1"]),
                 "pct_5": float(r["pct_5"]),
                 "pct_10": float(r["pct_10"]),
                 "pct_20": float(r["pct_20"]),
@@ -658,4 +661,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # python scripts/quantum_etf_dingtalk.py --once --no-publish
     main()
