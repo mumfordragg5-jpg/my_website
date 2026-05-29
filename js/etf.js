@@ -11,7 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loadEtfData() {
   const tableBody = document.getElementById('rankTableBody');
   try {
-    const response = await fetch('data/etf_data.json');
+    // 加上时间戳以防止浏览器强缓存 json 数据
+    const response = await fetch(`data/etf_data.json?_t=${Date.now()}`);
     if (!response.ok) {
       throw new Error('未找到最新的数据文件 etf_data.json');
     }
