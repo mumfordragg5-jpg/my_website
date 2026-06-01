@@ -1,13 +1,13 @@
 {
-  "update_time": "2026-06-01 09:34:08",
+  "update_time": "2026-06-01 12:50:23",
   "today_target": {
     "code": "515000",
     "name": "科技 ETF",
     "price": 1.339,
-    "action": "调仓警报",
-    "signal_desc": "🚨 **【调仓警报】** 动量第一顺位发生更替！\n👉 请在今日收盘前 **全仓卖出** 原持仓：`创业板50 ETF (159949)`\n👉 随后以收盘价 **等额买入** 新标的：`科技 ETF (515000)`"
+    "action": "持仓保持",
+    "signal_desc": "📈 今日暂无调仓指令，**继续持有**原标的。"
   },
-  "last_target_code": "159949",
+  "last_target_code": "515000",
   "backtest_stats": {
     "total_return": "+514.47%",
     "annual_return": "+28.03%",
