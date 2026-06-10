@@ -161,26 +161,32 @@ def tencent_quote(codes: list[str]) -> dict[str, dict]:
 # ────────────────────────────────────────────────────────
 # 3. 策略指标及评分大宽表计算
 # ────────────────────────────────────────────────────────
-def compute_scores(bars_dict: dict[str, pd.DataFrame], quotes: dict[str, dict]) -> pd.DataFrame:
+def compute_scores(bars_dict: dict[str, pd.DataFrame], quotes: dict[str, dict], target_date: str) -> pd.DataFrame:
     rows = []
+    target_date_dt = pd.to_datetime(target_date).date()
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    is_today = (target_date == today_str)
+    
     for code, df in bars_dict.items():
-        if len(df) < 25:
+        # 根据目标日期进行历史切片
+        df_filtered = df[df["datetime"].dt.date <= target_date_dt].copy()
+        if len(df_filtered) < 25:
             continue
             
-        close = df["close"].copy()
-        # 融入今日盘中实时最新价，需注意如果最后一根K线尚未更新到今日（比如刚收盘不久或盘中），应当在末尾追加今日的实时价
-        q = quotes.get(code, {})
-        realtime_p = q.get("price")
-        if realtime_p:
-            last_date = pd.to_datetime(df["datetime"].iloc[-1]).date()
-            today_date = datetime.now().date()
-            if last_date == today_date:
-                # 最后一根 K 线已经是今天，直接更新
-                close.iloc[-1] = realtime_p
-            else:
-                # 最后一根 K 线还是昨天，将今天的数据追加到末尾，确保均线和多天涨幅计算精度完全正确
-                new_row = pd.Series([realtime_p], index=[len(close)])
-                close = pd.concat([close, new_row]).reset_index(drop=True)
+        close = df_filtered["close"].copy()
+        # 仅当计算目标是今天时，才融合实时盘中最新价
+        if is_today:
+            q = quotes.get(code, {})
+            realtime_p = q.get("price")
+            if realtime_p:
+                last_date = pd.to_datetime(df_filtered["datetime"].iloc[-1]).date()
+                if last_date == target_date_dt:
+                    # 最后一根 K 线已经是今天，直接更新
+                    close.iloc[-1] = realtime_p
+                else:
+                    # 最后一根 K 线还是昨天，将今天的数据追加到末尾，确保均线和多天涨幅计算精度完全正确
+                    new_row = pd.Series([realtime_p], index=[len(close)])
+                    close = pd.concat([close, new_row]).reset_index(drop=True)
             
         # 计算均线
         ema20 = close.ewm(span=20, adjust=False).mean().iloc[-1]
@@ -201,8 +207,8 @@ def compute_scores(bars_dict: dict[str, pd.DataFrame], quotes: dict[str, dict]) 
         pct10 = get_pct(close, 10)
         pct20 = get_pct(close, 20)
         
-        # 5日均成交额，直接取最近 5 日的成交额均值
-        recent_amt = df["amount"].tail(5).tolist()
+        # 5日均成交额，使用切片后的历史成交额数据
+        recent_amt = df_filtered["amount"].tail(5).tolist()
         avg_amt_wan = (sum(recent_amt) / len(recent_amt)) / 10000.0 if recent_amt else 0.0
         
         # 过滤标准
@@ -331,7 +337,7 @@ def save_current_target(code: Optional[str]) -> None:
 
 # 6. 分析与推送控制中心
 # ────────────────────────────────────────────────────────
-def save_and_publish_etf_data(scores_df: pd.DataFrame, today_target_code: Optional[str], today_target_name: Optional[str], today_target_price: Optional[float], last_target_code: Optional[str], signal_title: str, signal_desc: str, no_publish: bool) -> None:
+def save_and_publish_etf_data(scores_df: pd.DataFrame, today_target_code: Optional[str], today_target_name: Optional[str], today_target_price: Optional[float], last_target_code: Optional[str], signal_title: str, signal_desc: str, no_publish: bool, target_date: str) -> None:
     """保存行情及选股评分数据为静态 JSON，并推送到 GitHub 网站仓库"""
     try:
         # 1. 拼装 ETF 行情大排行榜数据
@@ -360,9 +366,13 @@ def save_and_publish_etf_data(scores_df: pd.DataFrame, today_target_code: Option
                 "is_target": is_target
             })
             
+        # 根据 target_date 的类型来确定更新展示时间
+        is_today = (target_date == datetime.now().strftime("%Y-%m-%d"))
+        update_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S") if is_today else f"{target_date} 15:00:00"
+
         # 2. 拼装完整 JSON 结构
         data_json = {
-            "update_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "update_time": update_time_str,
             "today_target": {
                 "code": today_target_code,
                 "name": today_target_name,
@@ -395,6 +405,14 @@ def save_and_publish_etf_data(scores_df: pd.DataFrame, today_target_code: Option
             json.dump(data_json, f, ensure_ascii=False, indent=2)
         logging.info("成功输出静态数据至：%s", json_file)
         
+        # 新增：保存历史归档数据
+        history_dir = data_dir / "history"
+        history_dir.mkdir(exist_ok=True)
+        history_file = history_dir / f"etf_data_{target_date}.json"
+        with open(history_file, "w", encoding="utf-8") as f:
+            json.dump(data_json, f, ensure_ascii=False, indent=2)
+        logging.info("成功输出历史数据归档至：%s", history_file)
+        
         # 4. 执行 Git 自动提交推送逻辑
         if no_publish:
             logging.info("启用 --no-publish，跳过 GitHub 自动推送流程。")
@@ -403,9 +421,8 @@ def save_and_publish_etf_data(scores_df: pd.DataFrame, today_target_code: Option
         import subprocess
         logging.info("开始执行 Git 自动推送流程...")
         
-        # 依次运行 git 命令
-        # git add data/etf_data.json
-        subprocess.run(["git", "-C", str(website_dir), "add", "data/etf_data.json"], check=True)
+        # 依次运行 git 命令，提交整个 data 目录以囊括历史数据
+        subprocess.run(["git", "-C", str(website_dir), "add", "data/"], check=True)
         
         # 检查是否有文件改动，若无改动则不提交
         status_res = subprocess.run(["git", "-C", str(website_dir), "status", "--porcelain"], capture_output=True, text=True)
@@ -424,22 +441,64 @@ def save_and_publish_etf_data(scores_df: pd.DataFrame, today_target_code: Option
         logging.error("保存或发布 ETF 数据时发生错误: %s", e)
 
 
-def run_analysis_and_notify(webhook_url: str, no_publish: bool = False) -> None:
-    logging.info("开始执行 QuantumETF 动量选股分析...")
+def run_analysis_and_notify(webhook_url: str, no_publish: bool = False, target_date: Optional[str] = None) -> None:
+    # 格式化/标准化日期
+    if not target_date:
+        target_date = datetime.now().strftime("%Y-%m-%d")
+    else:
+        target_date = target_date.strip()
+        
+    is_today = (target_date == datetime.now().strftime("%Y-%m-%d"))
+    logging.info("开始执行 QuantumETF 动量选股分析 (日期: %s, 是否为今天: %s)...", target_date, is_today)
     
+    website_dir = find_website_dir()
+    history_file = website_dir / "data" / "history" / f"etf_data_{target_date}.json"
+    
+    # 拦截处理：如果历史归档已经存在，则直接读取覆盖最新的 etf_data.json
+    if history_file.exists():
+        logging.info("发现历史归档数据 %s 已经存在，直接读取...", history_file)
+        try:
+            with open(history_file, "r", encoding="utf-8") as f:
+                history_data = json.load(f)
+            
+            # 直接更新供网页显示的 etf_data.json
+            json_file = website_dir / "data" / "etf_data.json"
+            with open(json_file, "w", encoding="utf-8") as f:
+                json.dump(history_data, f, ensure_ascii=False, indent=2)
+            logging.info("已将历史归档直接覆盖为当前展示数据 etf_data.json。")
+            
+            # 自动推送逻辑
+            if not no_publish:
+                import subprocess
+                logging.info("开始执行 Git 自动推送流程...")
+                subprocess.run(["git", "-C", str(website_dir), "add", "data/"], check=True)
+                status_res = subprocess.run(["git", "-C", str(website_dir), "status", "--porcelain"], capture_output=True, text=True)
+                if status_res.stdout.strip():
+                    commit_msg = f"auto: fetch history data {target_date}"
+                    subprocess.run(["git", "-C", str(website_dir), "commit", "-m", commit_msg], check=True)
+                    subprocess.run(["git", "-C", str(website_dir), "push"], check=True)
+                    logging.info("GitHub 自动推送成功！数据已更新发布。")
+            return
+        except Exception as e:
+            logging.error("读取或推送已有历史归档时出错，将尝试重新查询计算: %s", e)
+
     # 1. 抓取 K 线
     client = MootdxClient()
-    bars_dict = client.batch_get_bars(80)
+    # 历史日期查询时多抓取一些 bars，以确保切片后还有足够长的序列做指标计算
+    fetch_bars = 80 if is_today else 300
+    bars_dict = client.batch_get_bars(fetch_bars)
     if not bars_dict:
         logging.error("行情源为空，终止分析")
         return
         
-    # 2. 抓取实时行情
-    codes = list(bars_dict.keys())
-    quotes = tencent_quote(codes)
+    # 2. 抓取实时行情 (历史日期不需要抓取当前最新实时价)
+    quotes = {}
+    if is_today:
+        codes = list(bars_dict.keys())
+        quotes = tencent_quote(codes)
     
     # 3. 计算策略大宽表
-    scores_df = compute_scores(bars_dict, quotes)
+    scores_df = compute_scores(bars_dict, quotes, target_date)
     if scores_df.empty:
         logging.error("指标计算结果为空，终止")
         return
@@ -587,7 +646,8 @@ def run_analysis_and_notify(webhook_url: str, no_publish: bool = False) -> None:
         last_target_code, 
         signal_title, 
         signal_desc, 
-        no_publish
+        no_publish,
+        target_date
     )
 
 
@@ -601,6 +661,7 @@ def main() -> None:
     parser.add_argument("--run-at", default="14:50", help="每日触发的时间 (建议收盘前 10 分钟如 14:50)")
     parser.add_argument("--webhook", default=DEFAULT_DINGTALK_WEBHOOK, help="自定义钉钉 Webhook 接口")
     parser.add_argument("--no-publish", action="store_true", help="跳过 GitHub 自动推送流程")
+    parser.add_argument("--date", default=None, help="查询并生成的历史日期，格式为 YYYY-MM-DD")
     
     args = parser.parse_args()
     
@@ -627,7 +688,7 @@ def main() -> None:
         
     if args.once:
         logging.info("触发 --once 选项，启动分析并推送...")
-        run_analysis_and_notify(args.webhook, no_publish=args.no_publish)
+        run_analysis_and_notify(args.webhook, no_publish=args.no_publish, target_date=args.date)
         logging.info("执行完毕，正常退出。")
         sys.exit(0)
         
@@ -647,7 +708,7 @@ def main() -> None:
                     if now_time_str == trigger_time:
                         if last_ran_date.get(trigger_time) != now_date_str:
                             logging.info("达到设定的定时任务触发时间：%s，开始分析...", trigger_time)
-                            run_analysis_and_notify(args.webhook, no_publish=args.no_publish)
+                            run_analysis_and_notify(args.webhook, no_publish=args.no_publish, target_date=None)
                             last_ran_date[trigger_time] = now_date_str
                             logging.info("定时推送完毕。")
                             

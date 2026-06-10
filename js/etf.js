@@ -5,7 +5,30 @@ let currentFilter = 'all'; // 'all' 或 'bullish'
 document.addEventListener('DOMContentLoaded', () => {
   loadEtfData();
   initFilterButtons();
+  initDatePicker();
 });
+
+// 初始化日期选择器与事件绑定
+function initDatePicker() {
+  const dateInput = document.getElementById('dateSelect');
+  if (!dateInput) return;
+
+  // 设置最大可选日期为今天
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  dateInput.max = `${yyyy}-${mm}-${dd}`;
+
+  dateInput.addEventListener('change', (e) => {
+    const selectedDate = e.target.value;
+    if (!selectedDate) {
+      loadEtfData();
+    } else {
+      loadHistoryData(selectedDate);
+    }
+  });
+}
 
 // 加载数据
 async function loadEtfData() {
@@ -18,10 +41,59 @@ async function loadEtfData() {
     }
     
     etfData = await response.json();
+    
+    // 重置标题为今日
+    const panelTitle = document.getElementById('panelTitle');
+    if (panelTitle) {
+      panelTitle.textContent = '今日动量综合排行榜';
+    }
+    
     renderPageData();
   } catch (error) {
     console.error('加载 ETF 数据失败:', error);
     showErrorMessage('暂无今日量化数据，请等待下午 15:00 收盘后系统自动计算发布。');
+  }
+}
+
+// 加载历史归档数据
+async function loadHistoryData(date) {
+  try {
+    let response;
+    
+    // 优先尝试向本地 API 发起请求（如果本地运行了 local_server.py 提供的接口）
+    try {
+      response = await fetch(`api/etf-data?date=${date}&_t=${Date.now()}`);
+      if (response.status === 404) {
+        // 如果 API 返回 404 错误（例如在 GitHub Pages 上直接 404，或者路径未匹配）
+        throw new Error('API route not found, fallback to static file');
+      } else if (!response.ok) {
+        // 如果服务器返回了报错（比如由于非交易日导致后端执行脚本返回错误）
+        const errText = await response.text();
+        throw new Error(`API error: ${errText}`);
+      }
+    } catch (apiError) {
+      console.warn('本地 API 不可用或返回失败，正在回退至直接读取静态 JSON 归档文件...', apiError);
+      
+      // 如果本地 API 出错或不可用（例如直接双击打开 html，或者部署在线上 GitHub Pages 时）
+      // 退回到直接请求静态文件
+      response = await fetch(`data/history/etf_data_${date}.json?_t=${Date.now()}`);
+      if (!response.ok) {
+        throw new Error(`未找到 ${date} 的静态历史归档数据`);
+      }
+    }
+    
+    etfData = await response.json();
+    
+    // 更新标题为历史日期
+    const panelTitle = document.getElementById('panelTitle');
+    if (panelTitle) {
+      panelTitle.textContent = `${date} 动量综合排行榜`;
+    }
+    
+    renderPageData();
+  } catch (error) {
+    console.error(`加载 ${date} 历史数据失败:`, error);
+    showErrorMessage(`暂无该日期（${date}）的历史数据，可能为非交易日（周六日、节假日）或该日期尚未生成数据归档。`);
   }
 }
 
@@ -214,10 +286,13 @@ function renderRankingsTable() {
 function showErrorMessage(message) {
   const card = document.getElementById('decisionCard');
   if (card) {
+    const dateInput = document.getElementById('dateSelect');
+    const isHistory = dateInput && dateInput.value;
+    const titleText = isHistory ? '历史数据未找到' : '今日数据同步中';
     card.innerHTML = `
       <div class="signal-status-box">
         <span class="signal-badge signal-empty">⚠️ 提示</span>
-        <span class="signal-title-text">今日数据同步中</span>
+        <span class="signal-title-text">${titleText}</span>
       </div>
       <p class="signal-desc-text" style="color: var(--text-muted);">${message}</p>
     `;

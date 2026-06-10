@@ -501,12 +501,18 @@
     <div class="rankings-panel">
       <div class="panel-header">
         <div>
-          <h2 class="panel-title">今日动量综合排行榜</h2>
+          <h2 class="panel-title" id="panelTitle">今日动量综合排行榜</h2>
           <span class="panel-meta" id="updateTime">正在同步最新行情数据...</span>
         </div>
-        <div class="panel-filters">
-          <button class="filter-btn active" id="btnFilterAll">全部 ETF (23)</button>
-          <button class="filter-btn" id="btnFilterBullish">🟢 仅看多头趋势</button>
+        <div class="panel-controls" style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+          <div class="date-picker-box" style="display: flex; align-items: center; gap: 8px;">
+            <label for="dateSelect" style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">查询历史日期:</label>
+            <input type="date" id="dateSelect" class="date-input" style="padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary); font-family: inherit; font-size: 0.85rem; outline: none; transition: border-color var(--transition);">
+          </div>
+          <div class="panel-filters">
+            <button class="filter-btn active" id="btnFilterAll">全部 ETF (23)</button>
+            <button class="filter-btn" id="btnFilterBullish">🟢 仅看多头趋势</button>
+          </div>
         </div>
       </div>
 

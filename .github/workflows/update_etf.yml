@@ -38,12 +38,12 @@ jobs:
       run: |
         python scripts/quantum_etf_dingtalk.py --once --no-publish
 
-    # 5. 将新生成的 etf_data.json 提交并安全推送回本仓库
+    # 5. 将新数据与历史归档提交并安全推送回本仓库
     - name: Commit & Push changes
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git add data/etf_data.json
+        git add data/
         # 如果文件没有变化，则跳过 commit，防止 Action 任务因无改动提交而报错中止
-        git diff-index --quiet HEAD || git commit -m "auto: update etf data via Actions"
+        git diff-index --quiet HEAD || git commit -m "auto: update etf data & history via Actions"
         git push
