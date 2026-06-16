@@ -10,7 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // 初始化日期选择器与事件绑定
 function initDatePicker() {
-  const dateInput = document.getElementById('dateSelect');
+  const dateInput = document.getElementById('historyDateInput');
+  const resetBtn = document.getElementById('btnResetDate');
   if (!dateInput) return;
 
   // 设置最大可选日期为今天
@@ -20,14 +21,26 @@ function initDatePicker() {
   const dd = String(today.getDate()).padStart(2, '0');
   dateInput.max = `${yyyy}-${mm}-${dd}`;
 
+  // 日期变化事件
   dateInput.addEventListener('change', (e) => {
     const selectedDate = e.target.value;
     if (!selectedDate) {
+      if (resetBtn) resetBtn.style.display = 'none';
       loadEtfData();
     } else {
+      if (resetBtn) resetBtn.style.display = 'inline-block';
       loadHistoryData(selectedDate);
     }
   });
+
+  // 重置今日按钮
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      dateInput.value = '';
+      resetBtn.style.display = 'none';
+      loadEtfData();
+    });
+  }
 }
 
 // 加载数据
@@ -286,7 +299,7 @@ function renderRankingsTable() {
 function showErrorMessage(message) {
   const card = document.getElementById('decisionCard');
   if (card) {
-    const dateInput = document.getElementById('dateSelect');
+    const dateInput = document.getElementById('historyDateInput');
     const isHistory = dateInput && dateInput.value;
     const titleText = isHistory ? '历史数据未找到' : '今日数据同步中';
     card.innerHTML = `

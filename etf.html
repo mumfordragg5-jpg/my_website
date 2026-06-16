@@ -411,6 +411,45 @@
       70% { box-shadow: 0 0 0 6px rgba(232, 93, 58, 0); }
       100% { box-shadow: 0 0 0 0 rgba(232, 93, 58, 0); }
     }
+
+    /* 历史日期选择器样式 */
+    .panel-date-picker {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .custom-date-picker {
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      font-family: inherit;
+      outline: none;
+      transition: all var(--transition);
+      cursor: pointer;
+    }
+    .custom-date-picker:focus, .custom-date-picker:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 8px rgba(232, 93, 58, 0.1);
+    }
+    .reset-date-btn {
+      padding: 6px 12px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--accent);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: none; /* 默认隐藏，仅在非今天时显示 */
+      transition: all var(--transition);
+    }
+    .reset-date-btn:hover {
+      background: var(--accent);
+      color: #fff;
+    }
   </style>
 </head>
 <body>
@@ -504,15 +543,17 @@
           <h2 class="panel-title" id="panelTitle">今日动量综合排行榜</h2>
           <span class="panel-meta" id="updateTime">正在同步最新行情数据...</span>
         </div>
-        <div class="panel-controls" style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-          <div class="date-picker-box" style="display: flex; align-items: center; gap: 8px;">
-            <label for="dateSelect" style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">查询历史日期:</label>
-            <input type="date" id="dateSelect" class="date-input" style="padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary); font-family: inherit; font-size: 0.85rem; outline: none; transition: border-color var(--transition);">
-          </div>
-          <div class="panel-filters">
-            <button class="filter-btn active" id="btnFilterAll">全部 ETF (23)</button>
-            <button class="filter-btn" id="btnFilterBullish">🟢 仅看多头趋势</button>
-          </div>
+        
+        <!-- 历史日期查询 -->
+        <div class="panel-date-picker">
+          <label for="historyDateInput" style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 600;">查询历史日期：</label>
+          <input type="date" id="historyDateInput" class="custom-date-picker">
+          <button id="btnResetDate" class="reset-date-btn">返回今日</button>
+        </div>
+
+        <div class="panel-filters">
+          <button class="filter-btn active" id="btnFilterAll">全部 ETF (23)</button>
+          <button class="filter-btn" id="btnFilterBullish">🟢 仅看多头趋势</button>
         </div>
       </div>
 
