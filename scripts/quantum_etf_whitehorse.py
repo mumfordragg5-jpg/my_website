@@ -190,7 +190,14 @@ class MootdxClient:
         try:
             df = self.client.bars(symbol=code, category=4, market=market, start=0, offset=count)
             if df is not None and not df.empty:
-                df = df.reset_index()
+                if df.index.name == 'datetime':
+                    if 'datetime' in df.columns:
+                        df = df.reset_index(drop=True)
+                    else:
+                        df = df.reset_index()
+                else:
+                    df = df.reset_index()
+
                 if "datetime" in df.columns:
                     df["date"] = pd.to_datetime(df["datetime"])
                 return df
@@ -221,54 +228,42 @@ class MootdxClient:
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# 📡  数据源 Layer 3 — 百度股市通日K线
+# 📡  数据源 Layer 3 — 新浪财经日K线
 # ════════════════════════════════════════════════════════════════════════════
 
-def get_baidu_kline(code: str) -> pd.DataFrame:
+def get_sina_kline(code: str) -> pd.DataFrame:
     code_norm = normalize_code(code)
-    params = {
-        'all': '1', 'isIndex': 'false', 'isBk': 'false', 'isBlock': 'false',
-        'isFutures': 'false', 'isStock': 'true', 'newFormat': '1',
-        'group': 'quotation_kline_ab', 'finClientType': 'pc',
-        'code': code_norm, 'ktype': '1',
-    }
-    headers = {
-        'User-Agent': _UA,
-        'Accept': 'application/vnd.finance-web.v1+json',
-        'Origin': 'https://gushitong.baidu.com',
-        'Referer': 'https://gushitong.baidu.com/',
-    }
-    url = 'https://finance.pae.baidu.com/selfselect/getstockquotation'
+    prefix = "sh" if code_norm.startswith(('6', '9', '5')) else "sz"
+    symbol = prefix + code_norm
+    # 新浪财经日K线接口，scale=240代表日线，datalen代表获取天数，设置为250以包含MA120所需的数据窗口
+    url = f"http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol={symbol}&scale=240&ma=no&datalen=250"
     try:
-        r = requests.get(url, headers=headers, params=params, timeout=10)
+        r = requests.get(url, timeout=10)
         r.raise_for_status()
         data = r.json()
-        result = data.get('Result', {})
-        md = result.get('newMarketData', {})
-        keys = md.get('keys', [])
-        raw_rows = md.get('marketData', '')
-        if not keys or not raw_rows:
+        if not data or not isinstance(data, list):
             return pd.DataFrame()
-
+        
+        # 新浪返回的数据格式：[{"day":"2023-11-20","open":"15.20","high":"15.50","low":"15.13","close":"15.25","volume":"32456"}, ...]
         rows = []
-        for line in raw_rows.split(';'):
-            line = line.strip()
-            if not line:
-                continue
-            vals = line.split(',')
-            if len(vals) == len(keys):
-                rows.append({k: v for k, v in zip(keys, vals)})
-
+        for item in data:
+            rows.append({
+                'date': item.get('day'),
+                'open': item.get('open'),
+                'high': item.get('high'),
+                'low': item.get('low'),
+                'close': item.get('close'),
+                'volume': item.get('volume')
+            })
+            
         if rows:
             df = pd.DataFrame(rows)
-            df = df.rename(columns={'time': 'date'})
             for col in ['open', 'close', 'high', 'low', 'volume']:
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                df[col] = pd.to_numeric(df[col], errors='coerce')
             df['date'] = pd.to_datetime(df['date'])
             return df.sort_values('date').reset_index(drop=True)
     except Exception as e:
-        logging.warning(f'百度K线获取失败({code_norm}): {e}')
+        logging.warning(f'新浪K线获取失败({code_norm}): {e}')
     return pd.DataFrame()
 
 
@@ -341,9 +336,9 @@ def get_ma120_and_price(code: str, target_date: str, is_today: bool, realtime_p:
     # 1. 尝试 mootdx K线
     if mootdx:
         df = mootdx.get_kline(code, count=MA_WINDOW + 80)
-    # 2. 尝试百度 K线
+    # 2. 尝试新浪 K线
     if df.empty:
-        df = get_baidu_kline(code)
+        df = get_sina_kline(code)
 
     if df.empty or len(df) < MA_WINDOW:
         return None, None
