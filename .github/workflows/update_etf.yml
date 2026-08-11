@@ -41,7 +41,7 @@ jobs:
     # 5. 执行白马股均值回归监控计算并生成静态 JSON
     - name: Run Whitehorse Quant Model
       run: |
-        python scripts/scripts/monitor_value_stocks_v2.py --once --no-publish
+        python scripts/scripts/quantum_etf_whitehorse.py --once --no-publish
 
     # 5. 将新数据与历史归档提交并安全推送回本仓库
     - name: Commit & Push changes
