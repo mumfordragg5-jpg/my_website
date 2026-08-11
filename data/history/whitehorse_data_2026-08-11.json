@@ -1,5 +1,5 @@
 {
-  "update_time": "2026-08-11 07:02:18",
+  "update_time": "2026-08-11 15:50:32",
   "signals": {
     "buy2": [],
     "buy": [
@@ -11,27 +11,19 @@
         "buy1": 3.88,
         "buy2": 3.44,
         "gap_pct": -1.31,
+        "change_pct": -2.79,
         "type": "横盘型"
       },
       {
         "code": "600970",
         "name": "中材国际",
         "price": 7.84,
-        "ma": 9.186499999999999,
+        "ma": 9.1865,
         "buy1": 8.08,
         "buy2": 7.17,
         "gap_pct": -3.06,
+        "change_pct": -0.63,
         "type": "横盘型"
-      },
-      {
-        "code": "000858",
-        "name": "五粮液",
-        "price": 75.0,
-        "ma": 89.02408333333332,
-        "buy1": 78.34,
-        "buy2": 69.44,
-        "gap_pct": -4.45,
-        "type": "趋势型"
       }
     ],
     "sell": [],
@@ -40,10 +32,11 @@
         "code": "600023",
         "name": "浙能电力",
         "price": 4.98,
-        "ma": 5.5685,
+        "ma": 5.568499999999999,
         "buy1": 4.9,
         "buy2": 4.34,
         "gap_pct": 1.61,
+        "change_pct": 0.4,
         "type": "横盘型"
       },
       {
@@ -54,6 +47,7 @@
         "buy1": 15.7,
         "buy2": 13.92,
         "gap_pct": 1.01,
+        "change_pct": -0.75,
         "type": "横盘型"
       }
     ]
@@ -63,11 +57,12 @@
       "code": "600000",
       "name": "浦发银行",
       "price": 9.21,
-      "ma": 9.474333333333332,
+      "ma": 9.474333333333334,
       "buy1": 8.34,
       "buy2": 7.39,
       "sell": 10.61,
       "gap_pct": 9.45,
+      "change_pct": -0.86,
       "status": "正常",
       "emoji": "⚪",
       "category": "横盘型"
@@ -76,11 +71,12 @@
       "code": "600015",
       "name": "华夏银行",
       "price": 6.74,
-      "ma": 6.902500000000001,
+      "ma": 6.9025,
       "buy1": 6.07,
       "buy2": 5.38,
       "sell": 7.73,
       "gap_pct": 9.94,
+      "change_pct": -0.3,
       "status": "正常",
       "emoji": "⚪",
       "category": "横盘型"
@@ -94,6 +90,7 @@
       "buy2": 8.54,
       "sell": 12.26,
       "gap_pct": 14.48,
+      "change_pct": -0.27,
       "status": "正常",
       "emoji": "⚪",
       "category": "横盘型"
@@ -107,6 +104,7 @@
       "buy2": 2.37,
       "sell": 3.41,
       "gap_pct": 6.29,
+      "change_pct": 0.0,
       "status": "正常",
       "emoji": "⚪",
       "category": "横盘型"
@@ -120,6 +118,7 @@
       "buy2": 3.44,
       "sell": 4.94,
       "gap_pct": -1.31,
+      "change_pct": -2.79,
       "status": "首批买入",
       "emoji": "🚨",
       "category": "横盘型"
@@ -133,6 +132,7 @@
       "buy2": 10.35,
       "sell": 14.86,
       "gap_pct": 12.11,
+      "change_pct": 0.3,
       "status": "正常",
       "emoji": "⚪",
       "category": "横盘型"
@@ -141,11 +141,12 @@
       "code": "001965",
       "name": "招商公路",
       "price": 9.38,
-      "ma": 9.728166666666665,
+      "ma": 9.728166666666668,
       "buy1": 8.56,
       "buy2": 7.59,
       "sell": 10.9,
       "gap_pct": 8.74,
+      "change_pct": -0.53,
       "status": "正常",
       "emoji": "⚪",
       "category": "横盘型"
@@ -154,11 +155,12 @@
       "code": "601006",
       "name": "大秦铁路",
       "price": 4.76,
-      "ma": 5.101583333333334,
+      "ma": 5.101583333333333,
       "buy1": 4.49,
       "buy2": 3.98,
       "sell": 5.71,
       "gap_pct": 5.67,
+      "change_pct": -0.42,
       "status": "正常",
       "emoji": "⚪",
       "category": "横盘型"
@@ -172,6 +174,7 @@
       "buy2": 9.48,
       "sell": 13.62,
       "gap_pct": 11.35,
+      "change_pct": 0.84,
       "status": "正常",
       "emoji": "⚪",
       "category": "横盘型"
@@ -180,11 +183,12 @@
       "code": "601166",
       "name": "兴业银行",
       "price": 18.22,
-      "ma": 18.166749999999997,
+      "ma": 18.16675,
       "buy1": 15.99,
       "buy2": 14.17,
       "sell": 20.35,
       "gap_pct": 12.24,
+      "change_pct": -0.65,
       "status": "正常",
       "emoji": "⚪",
       "category": "横盘型"
@@ -198,6 +202,7 @@
       "buy2": 30.12,
       "sell": 43.26,
       "gap_pct": 16.16,
+      "change_pct": -0.32,
       "status": "正常",
       "emoji": "⚪",
       "category": "横盘型"
@@ -206,11 +211,12 @@
       "code": "600023",
       "name": "浙能电力",
       "price": 4.98,
-      "ma": 5.5685,
+      "ma": 5.568499999999999,
       "buy1": 4.9,
       "buy2": 4.34,
       "sell": 6.24,
       "gap_pct": 1.61,
+      "change_pct": 0.4,
       "status": "即将到位",
       "emoji": "📉",
       "category": "横盘型"
@@ -224,6 +230,7 @@
       "buy2": 3.75,
       "sell": 5.39,
       "gap_pct": 6.42,
+      "change_pct": -0.44,
       "status": "正常",
       "emoji": "⚪",
       "category": "横盘型"
@@ -237,6 +244,7 @@
       "buy2": 13.92,
       "sell": 19.99,
       "gap_pct": 1.01,
+      "change_pct": -0.75,
       "status": "即将到位",
       "emoji": "📉",
       "category": "横盘型"
@@ -245,11 +253,12 @@
       "code": "600970",
       "name": "中材国际",
       "price": 7.84,
-      "ma": 9.186499999999999,
+      "ma": 9.1865,
       "buy1": 8.08,
       "buy2": 7.17,
       "sell": 10.29,
       "gap_pct": -3.06,
+      "change_pct": -0.63,
       "status": "首批买入",
       "emoji": "🚨",
       "category": "横盘型"
@@ -258,11 +267,12 @@
       "code": "600958",
       "name": "东方证券",
       "price": 9.15,
-      "ma": 9.496583333333335,
+      "ma": 9.496583333333332,
       "buy1": 8.36,
       "buy2": 7.41,
       "sell": 10.64,
       "gap_pct": 8.63,
+      "change_pct": -0.44,
       "status": "正常",
       "emoji": "⚪",
       "category": "横盘型"
@@ -276,6 +286,7 @@
       "buy2": 15.72,
       "sell": 22.57,
       "gap_pct": 10.58,
+      "change_pct": -0.95,
       "status": "正常",
       "emoji": "⚪",
       "category": "横盘型"
@@ -284,53 +295,15 @@
       "code": "600570",
       "name": "恒生电子",
       "price": 22.8,
-      "ma": 24.8815,
+      "ma": 24.881500000000003,
       "buy1": 21.9,
       "buy2": 19.41,
       "sell": 27.87,
       "gap_pct": 3.95,
+      "change_pct": -1.17,
       "status": "正常",
       "emoji": "⚪",
       "category": "横盘型"
-    },
-    {
-      "code": "000858",
-      "name": "五粮液",
-      "price": 75.0,
-      "ma": 89.02408333333332,
-      "buy1": 78.34,
-      "buy2": 69.44,
-      "sell": null,
-      "gap_pct": -4.45,
-      "status": "首批买入",
-      "emoji": "🚨",
-      "category": "趋势型"
-    },
-    {
-      "code": "603369",
-      "name": "今世缘",
-      "price": 27.93,
-      "ma": 27.259,
-      "buy1": 23.99,
-      "buy2": 21.26,
-      "sell": null,
-      "gap_pct": 14.11,
-      "status": "正常",
-      "emoji": "⚪",
-      "category": "趋势型"
-    },
-    {
-      "code": "603198",
-      "name": "迎驾贡酒",
-      "price": 40.25,
-      "ma": 35.35158333333333,
-      "buy1": 31.11,
-      "buy2": 27.57,
-      "sell": null,
-      "gap_pct": 22.71,
-      "status": "正常",
-      "emoji": "⚪",
-      "category": "趋势型"
     },
     {
       "code": "600690",
@@ -341,6 +314,7 @@
       "buy2": 17.09,
       "sell": null,
       "gap_pct": 12.36,
+      "change_pct": -1.12,
       "status": "正常",
       "emoji": "⚪",
       "category": "趋势型"
@@ -349,11 +323,12 @@
       "code": "000921",
       "name": "海信家电",
       "price": 27.25,
-      "ma": 24.57991666666667,
+      "ma": 24.579916666666666,
       "buy1": 21.63,
       "buy2": 19.17,
       "sell": null,
       "gap_pct": 20.62,
+      "change_pct": 1.68,
       "status": "正常",
       "emoji": "⚪",
       "category": "趋势型"
@@ -367,6 +342,7 @@
       "buy2": 25.72,
       "sell": null,
       "gap_pct": 20.21,
+      "change_pct": -2.86,
       "status": "正常",
       "emoji": "⚪",
       "category": "趋势型"
@@ -380,6 +356,7 @@
       "buy2": 43.71,
       "sell": null,
       "gap_pct": 11.61,
+      "change_pct": -1.41,
       "status": "正常",
       "emoji": "⚪",
       "category": "趋势型"
@@ -388,11 +365,12 @@
       "code": "600887",
       "name": "伊利股份",
       "price": 26.1,
-      "ma": 26.118499999999997,
+      "ma": 26.1185,
       "buy1": 22.98,
       "buy2": 20.37,
       "sell": null,
       "gap_pct": 11.95,
+      "change_pct": -0.61,
       "status": "正常",
       "emoji": "⚪",
       "category": "趋势型"
@@ -406,19 +384,7 @@
       "buy2": 62.24,
       "sell": null,
       "gap_pct": 17.99,
-      "status": "正常",
-      "emoji": "⚪",
-      "category": "趋势型"
-    },
-    {
-      "code": "600177",
-      "name": "雅戈尔",
-      "price": 7.75,
-      "ma": 7.54475,
-      "buy1": 6.64,
-      "buy2": 5.88,
-      "sell": null,
-      "gap_pct": 14.32,
+      "change_pct": 0.38,
       "status": "正常",
       "emoji": "⚪",
       "category": "趋势型"
@@ -427,11 +393,12 @@
       "code": "601225",
       "name": "陕西煤业",
       "price": 25.93,
-      "ma": 24.700833333333335,
+      "ma": 24.700833333333332,
       "buy1": 21.74,
       "buy2": 19.27,
       "sell": null,
       "gap_pct": 16.16,
+      "change_pct": -0.42,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -445,6 +412,7 @@
       "buy2": 35.3,
       "sell": null,
       "gap_pct": 10.92,
+      "change_pct": 0.04,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -458,6 +426,7 @@
       "buy2": 27.52,
       "sell": null,
       "gap_pct": 7.86,
+      "change_pct": 5.31,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -471,6 +440,7 @@
       "buy2": 21.29,
       "sell": null,
       "gap_pct": 15.19,
+      "change_pct": 0.93,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -479,11 +449,12 @@
       "code": "600036",
       "name": "招商银行",
       "price": 38.95,
-      "ma": 38.56033333333333,
+      "ma": 38.56033333333334,
       "buy1": 33.93,
       "buy2": 30.08,
       "sell": null,
       "gap_pct": 12.89,
+      "change_pct": 0.1,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -492,11 +463,12 @@
       "code": "601939",
       "name": "建设银行",
       "price": 10.23,
-      "ma": 9.728583333333335,
+      "ma": 9.728583333333331,
       "buy1": 8.56,
       "buy2": 7.59,
       "sell": null,
       "gap_pct": 16.32,
+      "change_pct": 0.99,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -510,6 +482,7 @@
       "buy2": 5.76,
       "sell": null,
       "gap_pct": 14.61,
+      "change_pct": 0.93,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -523,6 +496,7 @@
       "buy2": 5.14,
       "sell": null,
       "gap_pct": 10.49,
+      "change_pct": 0.31,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -536,6 +510,7 @@
       "buy2": 1050.61,
       "sell": null,
       "gap_pct": 11.97,
+      "change_pct": -0.17,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -549,6 +524,7 @@
       "buy2": 43.77,
       "sell": null,
       "gap_pct": 6.03,
+      "change_pct": -1.44,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -562,6 +538,7 @@
       "buy2": 5.31,
       "sell": null,
       "gap_pct": 13.29,
+      "change_pct": 0.29,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -575,6 +552,7 @@
       "buy2": 73.92,
       "sell": null,
       "gap_pct": 13.5,
+      "change_pct": -0.29,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -583,11 +561,12 @@
       "code": "601728",
       "name": "中国电信",
       "price": 6.32,
-      "ma": 5.944083333333334,
+      "ma": 5.944083333333333,
       "buy1": 5.23,
       "buy2": 4.64,
       "sell": null,
       "gap_pct": 17.25,
+      "change_pct": 0.8,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -601,6 +580,7 @@
       "buy2": 11.52,
       "sell": null,
       "gap_pct": 16.02,
+      "change_pct": -1.02,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -614,6 +594,7 @@
       "buy2": 8.63,
       "sell": null,
       "gap_pct": 12.03,
+      "change_pct": 1.94,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -627,6 +608,7 @@
       "buy2": 4.25,
       "sell": null,
       "gap_pct": 6.07,
+      "change_pct": -0.2,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
@@ -640,6 +622,7 @@
       "buy2": 8.51,
       "sell": null,
       "gap_pct": 11.6,
+      "change_pct": 1.5,
       "status": "正常",
       "emoji": "⚪",
       "category": "持有型"
