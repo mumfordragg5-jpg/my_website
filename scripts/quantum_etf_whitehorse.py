@@ -22,7 +22,7 @@ import time
 import urllib.request
 import warnings
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 
 import pandas as pd
 import requests
@@ -325,9 +325,9 @@ def get_realtime_quotes(stock_codes: List[str], mootdx: Optional[MootdxClient] =
 # 📊  MA120 计算及历史切片
 # ════════════════════════════════════════════════════════════════════════════
 
-def get_ma120_and_price(code: str, target_date: str, is_today: bool, realtime_p: Optional[float] = None, mootdx: Optional[MootdxClient] = None) -> Tuple[Optional[float], Optional[float]]:
+def get_ma120_and_price(code: str, target_date: str, is_today: bool, realtime_p: Optional[float] = None, mootdx: Optional[MootdxClient] = None) -> Tuple[Optional[float], Optional[float], Optional[float]]:
     """
-    计算特定日期的 MA120 和当天价格。
+    计算特定日期的 MA120、当天价格和今日涨跌幅。
     如果 target_date 是今天且有实时价，将实时价融入到最近一根K线中计算。
     """
     df = pd.DataFrame()
@@ -339,7 +339,7 @@ def get_ma120_and_price(code: str, target_date: str, is_today: bool, realtime_p:
         df = get_sina_kline(code)
 
     if df.empty or len(df) < MA_WINDOW:
-        return None, None
+        return None, None, None
 
     # 时间序列格式对齐
     df['date'] = pd.to_datetime(df['date'])
@@ -348,7 +348,7 @@ def get_ma120_and_price(code: str, target_date: str, is_today: bool, realtime_p:
     # 历史日期切片
     df_filtered = df[df['date'].dt.date <= target_dt.date()].copy()
     if len(df_filtered) < MA_WINDOW:
-        return None, None
+        return None, None, None
 
     close_series = df_filtered['close'].astype(float).copy()
 
@@ -365,7 +365,14 @@ def get_ma120_and_price(code: str, target_date: str, is_today: bool, realtime_p:
     ma120 = close_series.rolling(MA_WINDOW).mean().iloc[-1]
     final_price = close_series.iloc[-1]
 
-    return (float(ma120), float(final_price)) if pd.notna(ma120) else (None, None)
+    # 计算相比于昨日的涨跌幅
+    change_pct = 0.0
+    if len(close_series) >= 2:
+        pre_close = close_series.iloc[-2]
+        if pre_close > 0:
+            change_pct = round((final_price - pre_close) / pre_close * 100, 2)
+
+    return (float(ma120), float(final_price), float(change_pct)) if pd.notna(ma120) else (None, None, None)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -468,9 +475,9 @@ def build_markdown_message(signals: Dict, is_friday: bool, target_date: str) -> 
     has_signals = bool(signals['buy'] or signals['buy2'] or signals['sell'] or signals['near'])
     
     if has_signals:
-        title = "白马股均值回归调仓信号"
+        title = "Test"
     elif is_friday:
-        title = "白马股均值回归周监控总览"
+        title = "Test weekly"
     else:
         return None
 
@@ -480,15 +487,17 @@ def build_markdown_message(signals: Dict, is_friday: bool, target_date: str) -> 
         lines = []
         for s in stock_list:
             tag = f"[{s['type']}]"
+            chg = s.get('change_pct', 0.0)
+            chg_tag = f"今日 {chg:+.2f}% | " if chg != 0 else "今日 0.00% | "
             if show_sell:
                 line = (f"- **{s['name']}** ({s['code']}) {tag}  \n"
-                        f"  现价 **{s['price']:.2f}** | MA120 {s['ma']:.2f} | **卖点 {s['sell']:.2f}** | 偏离率 {s['gap_pct']:+.2f}%\n")
+                        f"  现价 **{s['price']:.2f}** | {chg_tag}MA120 {s['ma']:.2f} | **卖点 {s['sell']:.2f}** | 偏离率 {s['gap_pct']:+.2f}%\n")
             elif 'buy2' in s:
                 line = (f"- **{s['name']}** ({s['code']}) {tag}  \n"
-                        f"  现价 **{s['price']:.2f}** | MA120 {s['ma']:.2f} | 一批买点 {s['buy1']:.2f} | **二批买点 {s['buy2']:.2f}** | 偏离 {s['gap_pct']:+.2f}%\n")
+                        f"  现价 **{s['price']:.2f}** | {chg_tag}MA120 {s['ma']:.2f} | 一批买点 {s['buy1']:.2f} | **二批买点 {s['buy2']:.2f}** | 偏离 {s['gap_pct']:+.2f}%\n")
             else:
                 line = (f"- **{s['name']}** ({s['code']}) {tag}  \n"
-                        f"  现价 **{s['price']:.2f}** | MA120 {s['ma']:.2f} | 买点 {s['buy1']:.2f} | 偏离 {s['gap_pct']:+.2f}%\n")
+                        f"  现价 **{s['price']:.2f}** | {chg_tag}MA120 {s['ma']:.2f} | 买点 {s['buy1']:.2f} | 偏离 {s['gap_pct']:+.2f}%\n")
             lines.append(line)
         return "".join(lines)
 
@@ -510,7 +519,7 @@ def build_markdown_message(signals: Dict, is_friday: bool, target_date: str) -> 
 
     # 周五总览
     if is_friday:
-        content += "### 📋 45 只白马股策略实时监控总览\n"
+        content += "### 📋 Test\n"
         categories = [('横盘型', '横盘震荡型'), ('趋势型', '趋势成长型'), ('持有型', '长期持有型')]
         for cat_key, cat_name in categories:
             cat_stocks = [s for s in signals['all_status'] if s['category'] == cat_key]
@@ -520,14 +529,11 @@ def build_markdown_message(signals: Dict, is_friday: bool, target_date: str) -> 
             for s in cat_stocks:
                 status_text = f"**{s['status']}**" if s['status'] != '正常' else '正常'
                 points_info = f"买点 {s['buy1']:.2f} | 卖点 {s['sell']:.2f}" if cat_key == '横盘型' else f"买点 {s['buy1']:.2f}"
-                content += f"- {s['emoji']} **{s['name']}**({s['code']}): 现价 {s['price']:.2f} | {points_info} | 偏离 {s['gap_pct']:+.2f}% | 状态: {status_text}\n"
+                chg = s.get('change_pct', 0.0)
+                content += f"- {s['emoji']} **{s['name']}**({s['code']}): 现价 {s['price']:.2f} | 今日 {chg:+.2f}% | {points_info} | 偏离 {s['gap_pct']:+.2f}% | 状态: {status_text}\n"
             content += "\n"
 
-    content += ("---\n"
-                "> **白马股均值回归策略说明**  \n"
-                "> ◽ **横盘震荡型**：MA120×0.88建仓，MA120×0.78加仓，MA120×1.12止盈卖出  \n"
-                "> ◽ **趋势成长型**：MA120×0.88建仓，MA120×0.78加仓，跌破 MA55 止损卖出  \n"
-                "> ◽ **长期持有型**：触及买点建仓，收股息长持，不设卖点止盈")
+    content += ("---\n")
     return title, content
 
 
@@ -562,13 +568,22 @@ def run_whitehorse_analysis(target_date: str, no_publish: bool, dingtalk_token: 
     logging.info("计算 %d 只白马股的 MA120 及当日收盘价...", len(all_stocks))
     ma_cache = {}
     price_cache = {}
+    change_pct_cache = {}
     
     for code in all_stocks:
         realtime_p = quotes.get(code, {}).get('price') if is_today else None
-        ma, price = get_ma120_and_price(code, target_date, is_today, realtime_p, mootdx)
-        if ma is not None and price is not None:
+        ma, price, change_pct = get_ma120_and_price(code, target_date, is_today, realtime_p, mootdx)
+        if ma is not None and price is not None and change_pct is not None:
             ma_cache[code] = ma
             price_cache[code] = price
+            # 优先使用实时报价里计算出来的涨跌幅
+            if is_today and code in quotes:
+                q = quotes[code]
+                q_price = q.get('price', 0.0)
+                q_pre = q.get('pre_close', 0.0)
+                if q_pre > 0:
+                    change_pct = round((q_price - q_pre) / q_pre * 100, 2)
+            change_pct_cache[code] = change_pct
         else:
             logging.warning("%s 行情/均线数据获取失败", code)
 
@@ -583,6 +598,7 @@ def run_whitehorse_analysis(target_date: str, no_publish: bool, dingtalk_token: 
     for code, name in all_stocks.items():
         price = price_cache.get(code, 0.0)
         ma = ma_cache.get(code, 0.0)
+        change_pct = change_pct_cache.get(code, 0.0)
         
         if price <= 0.0 or ma <= 0.0:
             signals["all_status"].append({
@@ -594,6 +610,7 @@ def run_whitehorse_analysis(target_date: str, no_publish: bool, dingtalk_token: 
                 "buy2": 0.0,
                 "sell": 0.0,
                 "gap_pct": 0.0,
+                "change_pct": 0.0,
                 "status": "数据失效",
                 "emoji": "❌",
                 "category": "横盘型" if code in RANGE_STOCKS else ("趋势型" if code in TREND_STOCKS else "持有型")
@@ -620,6 +637,7 @@ def run_whitehorse_analysis(target_date: str, no_publish: bool, dingtalk_token: 
             'buy1': buy1,
             'buy2': buy2,
             'gap_pct': gap_pct,
+            'change_pct': change_pct,
             'type': '横盘型' if is_range else ('趋势型' if is_trend else '持有型')
         }
 
@@ -649,6 +667,7 @@ def run_whitehorse_analysis(target_date: str, no_publish: bool, dingtalk_token: 
             "buy2": buy2,
             "sell": sell if is_range else None,
             "gap_pct": gap_pct,
+            "change_pct": change_pct,
             "status": status_str,
             "emoji": emoji,
             "category": '横盘型' if is_range else ('趋势型' if is_trend else '持有型')
