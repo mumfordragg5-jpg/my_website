@@ -63,6 +63,7 @@ ETF_NAME_MAP = {
     "512800": "银行 ETF",     # "516120": "化工 ETF",
 }
 
+# mootdx 服务器列表（懒加载时内部使用）
 MOOTDX_SERVERS = [
     ("110.41.147.114", 7709), ("8.129.13.54", 7709),
     ("120.24.149.49",  7709), ("124.70.176.52", 7709)
@@ -71,91 +72,281 @@ MOOTDX_SERVERS = [
 
 # ────────────────────────────────────────────────────────
 # 2. 通达信及腾讯实时行情源
-# ────────────────────────────────────────────────────────
-class MootdxClient:
-    def __init__(self) -> None:
-        self.client = None
-        self._connect()
+# ────────────────────────────────────────────────────────\n
+# ════════════════════════════════════════════════════════
+# 📡  数据源 Layer 1 — 腾讯财经实时行情（HTTP，已验证可用）
+# ════════════════════════════════════════════════════════
+_UA = (
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+    'AppleWebKit/537.36 (KHTML, like Gecko) '
+    'Chrome/124.0.0.0 Safari/537.36'
+)
 
-    def _connect(self) -> None:
-        for ip, port in MOOTDX_SERVERS:
-            try:
-                client = Quotes.factory(market="std", server=(ip, port))
-                test = client.bars(symbol="510300", category=4, market=1, offset=2)
-                if test is not None and not test.empty:
-                    self.client = client
-                    logging.info("mootdx 连通成功: %s:%d", ip, port)
-                    return
-            except Exception:
-                pass
-        logging.error("所有通达信服务器均连接失败！")
+def _etf_prefix(code: str) -> str:
+    c = code.strip()
+    return "sh" if c.startswith(("51", "58")) else "sz"
 
-    def get_bars(self, symbol: str, market: int, bars: int = 80) -> Optional[pd.DataFrame]:
-        if not self.client:
-            self._connect()
-        if not self.client:
-            return None
-        for attempt in range(3):
-            try:
-                df = self.client.bars(symbol=symbol, category=4, market=market, offset=bars)
-                if df is not None and not df.empty:
-                    if df.index.name == "datetime":
-                        if "datetime" in df.columns:
-                            df = df.drop(columns=["datetime"])
-                        df = df.reset_index()
-                    if "datetime" in df.columns:
-                        df["datetime"] = pd.to_datetime(df["datetime"])
-                    df = df[["datetime", "open", "close", "high", "low", "vol", "amount"]].copy()
-                    for c in ["open", "close", "high", "low", "vol", "amount"]:
-                        df[c] = pd.to_numeric(df[c])
-                    return df.sort_values("datetime").reset_index(drop=True)
-            except Exception as e:
-                logging.warning("[%s] 获取K线异常: %s", symbol, e)
-                time.sleep(0.5)
+def _safe_float(val):
+    if val is None or str(val).strip() in ('', '--', '-', 'null', 'None'):
+        return None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
         return None
 
-    def batch_get_bars(self, bars: int = 80) -> dict[str, pd.DataFrame]:
-        res = {}
-        for code, mkt in DEFAULT_ETF_LIST:
-            df = self.get_bars(code, mkt, bars)
-            if df is not None:
-                res[code] = df
-            time.sleep(0.05)
-        return res
-
-
 def tencent_quote(codes: list[str]) -> dict[str, dict]:
-    url = f"https://qt.gtimg.cn/q={','.join([('sh'+c if c.startswith(('51','58')) else 'sz'+c) for c in codes])}"
+    symbols = [_etf_prefix(c) + c for c in codes]
+    url = f"https://qt.gtimg.cn/q={','.join(symbols)}"
     try:
-        r = requests.get(url, timeout=10)
-        r.raise_for_status()
-        text = r.content.decode("gbk", errors="replace")
-        res = {}
-        for line in text.splitlines():
-            if "=" not in line:
-                continue
-            k, _, v = line.partition("=")
-            code = k.strip().lstrip("v_")[2:]
-            fields = v.strip().strip('"').split("~")
-            
-            def safe_float(idx: int) -> Optional[float]:
-                try:
-                    return float(fields[idx]) if fields[idx] not in ("", "-", "--") else None
-                except Exception:
-                    return None
-            
-            if len(fields) > 44:
-                m_wan = safe_float(44)
-                res[code] = {
-                    "name":         fields[1],
-                    "price":        safe_float(3),
-                    "turnover_pct": safe_float(38),
-                    "mcap_yi":      round(m_wan / 10000.0, 2) if m_wan else None
-                }
-        return res
+        import urllib.request
+        req = urllib.request.Request(url)
+        req.add_header('User-Agent', _UA)
+        resp = urllib.request.urlopen(req, timeout=10)
+        text = resp.read().decode('gbk', errors='replace')
     except Exception as e:
-        logging.error("获取腾讯实时行情异常: %s", e)
+        import logging
+        logging.error("腾讯实时行情请求失败: %s", e)
         return {}
+
+    res = {}
+    for line in text.strip().split(';'):
+        line = line.strip()
+        if not line or '=' not in line or '"' not in line:
+            continue
+        import re
+        m = re.match(r'v_(\w+)="([^"]*)"', line)
+        if not m:
+            continue
+        raw_code = m.group(1)[2:]
+        fields = m.group(2).split('~')
+        if len(fields) < 45:
+            continue
+        def sf(idx):
+            try:
+                return float(fields[idx]) if fields[idx] not in ('', '-', '--') else None
+            except Exception:
+                return None
+        m_wan = sf(44)
+        res[raw_code] = {
+            "name":         fields[1],
+            "price":        sf(3),
+            "last_close":   sf(4),
+            "turnover_pct": sf(38),
+            "mcap_yi":      round(m_wan / 10000.0, 2) if m_wan else None,
+        }
+    import logging
+    logging.info("腾讯实时行情获取成功 %d/%d 只", len(res), len(codes))
+    return res
+
+
+# ════════════════════════════════════════════════════════
+# 📡  数据源 Layer 2 — mootdx 通达信（懒加载，TCP不可用时跳过）
+# ════════════════════════════════════════════════════════
+class MootdxClient:
+    def __init__(self):
+        self._client = None
+
+    @property
+    def client(self):
+        import logging
+        if self._client is None:
+            try:
+                from mootdx import config
+                original_get = config.get
+                def patched_get(key, *args, **kwargs):
+                    val = original_get(key, *args, **kwargs)
+                    if key == 'BESTIP' and isinstance(val, dict):
+                        return {k: v for k, v in val.items() if v}
+                    return val
+                config.get = patched_get
+            except Exception:
+                pass
+            try:
+                from mootdx.quotes import Quotes
+                self._client = Quotes.factory(market='std', multithread=True, heartbeat=True)
+                logging.info('mootdx 已连接')
+            except Exception as e:
+                logging.warning('mootdx 连通失败: %s', e)
+        return self._client
+
+    def get_kline(self, code: str, count: int = 300):
+        import logging
+        import pandas as pd
+        if not self.client:
+            return pd.DataFrame()
+        mkt = 1 if _etf_prefix(code) == 'sh' else 0
+        try:
+            df = self.client.bars(symbol=code, category=4, market=mkt, start=0, offset=count)
+            if df is not None and not df.empty:
+                if df.index.name == 'datetime':
+                    df = df.reset_index()
+                elif 'datetime' not in df.columns:
+                    df = df.reset_index()
+                df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
+                cols = [c for c in ['datetime', 'open', 'close', 'high', 'low', 'vol', 'amount'] if c in df.columns]
+                df = df[cols].copy()
+                for c in cols[1:]:
+                    df[c] = pd.to_numeric(df[c], errors='coerce')
+                return df.sort_values('datetime').reset_index(drop=True)
+        except Exception as e:
+            logging.warning('mootdx get_kline(%s) 失败: %s', code, e)
+        return pd.DataFrame()
+
+    def close(self):
+        if self._client is not None:
+            try:
+                self._client.client.close()
+            except Exception:
+                pass
+            self._client = None
+
+
+# ════════════════════════════════════════════════════════
+# 📡  数据源 Layer 3 — 百度股市通日K线（HTTP）
+# ════════════════════════════════════════════════════════
+def get_baidu_kline(code: str):
+    import logging
+    params = {
+        'all': '1', 'isIndex': 'false', 'isBk': 'false', 'isBlock': 'false',
+        'isFutures': 'false', 'isStock': 'true', 'newFormat': '1',
+        'group': 'quotation_kline_ab', 'finClientType': 'pc',
+        'code': code.strip(), 'start_time': '', 'ktype': '1',
+    }
+    headers = {
+        'User-Agent': _UA,
+        'Accept': 'application/vnd.finance-web.v1+json',
+        'Origin': 'https://gushitong.baidu.com',
+        'Referer': 'https://gushitong.baidu.com/',
+    }
+    try:
+        import requests
+        import pandas as pd
+        r = requests.get('https://finance.pae.baidu.com/selfselect/getstockquotation', headers=headers, params=params, timeout=12)
+        r.raise_for_status()
+        data = r.json()
+        result = data.get('Result', {})
+        md = result.get('newMarketData', {})
+        keys = md.get('keys', [])
+        raw_rows = md.get('marketData', '')
+        if not keys or not raw_rows:
+            return pd.DataFrame()
+        rows = []
+        for line in raw_rows.split(';'):
+            line = line.strip()
+            if not line:
+                continue
+            vals = line.split(',')
+            if len(vals) != len(keys):
+                continue
+            rows.append(dict(zip(keys, vals)))
+        if not rows:
+            return pd.DataFrame()
+        df = pd.DataFrame(rows)
+        if 'time' in df.columns:
+            df = df.rename(columns={'time': 'datetime'})
+        for col in ['open', 'close', 'high', 'low', 'volume', 'amount']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        if 'datetime' in df.columns:
+            df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
+            df = df.sort_values('datetime').reset_index(drop=True)
+        if 'volume' in df.columns and 'vol' not in df.columns:
+            df = df.rename(columns={'volume': 'vol'})
+        if 'amount' not in df.columns:
+            df['amount'] = 0.0
+        return df
+    except Exception as e:
+        logging.warning('百度K线获取失败(%s): %s', code, e)
+        import pandas as pd
+        return pd.DataFrame()
+
+
+# ════════════════════════════════════════════════════════
+# 📡  数据源 Layer 4 — 新浪财经日K线（HTTP兜底）
+# ════════════════════════════════════════════════════════
+def get_sina_kline(code: str, bars: int = 300):
+    import logging
+    symbol = _etf_prefix(code) + code.strip()
+    url = f"http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol={symbol}&scale=240&ma=no&datalen={bars}"
+    try:
+        import requests
+        import pandas as pd
+        r = requests.get(url, timeout=12)
+        r.raise_for_status()
+        data = r.json()
+        if not data or not isinstance(data, list):
+            return pd.DataFrame()
+        rows = []
+        for item in data:
+            vol = _safe_float(item.get('volume')) or 0.0
+            close = _safe_float(item.get('close')) or 0.0
+            rows.append({
+                'datetime': item.get('day'),
+                'open':     item.get('open'),
+                'high':     item.get('high'),
+                'low':      item.get('low'),
+                'close':    item.get('close'),
+                'vol':      vol,
+                'amount':   vol * close * 100,
+            })
+        if not rows:
+            return pd.DataFrame()
+        df = pd.DataFrame(rows)
+        for col in ['open', 'close', 'high', 'low', 'vol', 'amount']:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+        df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
+        df = df.dropna(subset=['datetime', 'close'])
+        return df.sort_values('datetime').reset_index(drop=True)
+    except Exception as e:
+        logging.warning('新浪K线获取失败(%s): %s', code, e)
+        import pandas as pd
+        return pd.DataFrame()
+
+
+# ════════════════════════════════════════════════════════
+# 📡  综合K线获取（多源容灾）
+# ════════════════════════════════════════════════════════
+def get_etf_kline(code: str, bars: int = 300, mootdx_client=None):
+    import logging
+    if mootdx_client is not None:
+        try:
+            df = mootdx_client.get_kline(code, count=bars)
+            if not df.empty and 'close' in df.columns and len(df) >= 25:
+                return df
+        except Exception as e:
+            logging.warning('mootdx K线失败(%s): %s', code, e)
+    try:
+        df = get_baidu_kline(code)
+        if not df.empty and 'close' in df.columns and len(df) >= 25:
+            return df
+    except Exception as e:
+        logging.warning('百度K线失败(%s): %s', code, e)
+    df = get_sina_kline(code, bars)
+    return df
+
+def batch_get_klines(bars: int = 300, mootdx_client=None) -> dict:
+    import time
+    import logging
+    res = {}
+    from typing import List, Tuple
+    try:
+        from quantum_etf_dingtalk import DEFAULT_ETF_LIST
+    except Exception:
+        # fallback if import fails, normally it's defined globally
+        global DEFAULT_ETF_LIST
+    
+    total = len(DEFAULT_ETF_LIST)
+    for i, (code, _) in enumerate(DEFAULT_ETF_LIST):
+        df = get_etf_kline(code, bars, mootdx_client)
+        if df is not None and not df.empty:
+            res[code] = df
+        else:
+            logging.warning('所有K线数据源均失败: %s', code)
+        if (i + 1) % 5 == 0:
+            logging.info('K线获取进度: %d/%d', i + 1, total)
+        time.sleep(0.1)
+    logging.info('K线批量完成，成功 %d/%d 只', len(res), total)
+    return res
 
 
 # ────────────────────────────────────────────────────────
@@ -482,22 +673,31 @@ def run_analysis_and_notify(webhook_url: str, no_publish: bool = False, target_d
         except Exception as e:
             logging.error("读取或推送已有历史归档时出错，将尝试重新查询计算: %s", e)
 
-    # 1. 抓取 K 线
-    client = MootdxClient()
+    # 1. 初始化 mootdx（懒加载，若 TCP 不可达会自动降级到 HTTP 数据源）
+    mootdx_client = None
+    try:
+        mootdx_client = MootdxClient()
+        logging.info("mootdx 客户端已初始化（懒加载）")
+    except Exception as e:
+        logging.warning("mootdx 初始化失败，将全程使用 HTTP 数据源: %s", e)
+
+    # 2. 抓取 K 线（多源容灾：mootdx → 百度K线 → 新浪K线）
     # 历史日期查询时多抓取一些 bars，以确保切片后还有足够长的序列做指标计算
     fetch_bars = 80 if is_today else 300
-    bars_dict = client.batch_get_bars(fetch_bars)
+    bars_dict = batch_get_klines(bars=fetch_bars, mootdx_client=mootdx_client)
+    if mootdx_client:
+        mootdx_client.close()
     if not bars_dict:
-        logging.error("行情源为空，终止分析")
+        logging.error("所有行情源均为空，终止分析")
         return
-        
-    # 2. 抓取实时行情 (历史日期不需要抓取当前最新实时价)
+
+    # 3. 抓取实时行情（仅今日需要，历史日期直接用K线收盘价）
     quotes = {}
     if is_today:
         codes = list(bars_dict.keys())
         quotes = tencent_quote(codes)
-    
-    # 3. 计算策略大宽表
+
+    # 4. 计算策略大宽表
     scores_df = compute_scores(bars_dict, quotes, target_date)
     if scores_df.empty:
         logging.error("指标计算结果为空，终止")

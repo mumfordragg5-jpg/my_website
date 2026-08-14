@@ -1,12 +1,27 @@
 name: Update ETF Data
 
 on:
-  # 支持手动在 GitHub Actions 页面点击 "Run workflow" 刷新数据
+  # 支持手动在 GitHub Actions 页面或通过 API 触发，并接受输入参数
   workflow_dispatch:
+    inputs:
+      strategy:
+        description: '运行策略 (all / etf / whitehorse)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - etf
+          - whitehorse
+      date:
+        description: '查询日期 YYYY-MM-DD（留空=今天）'
+        required: false
+        default: ''
+        type: string
 
   # 自动定时刷新：每天北京时间周一至周五 15:15 分运行 (UTC 07:15)
   schedule:
-    - cron: '15 4 * * 1-5'
+    - cron: '15 7 * * 1-5'
 
 jobs:
   update-etf:
@@ -32,23 +47,32 @@ jobs:
         python -m pip install --upgrade pip
         pip install pandas requests mootdx
 
-    # 4. 执行选股决策分析并生成静态 JSON
-    # 使用 --no-publish 选项防止脚本内部重复调用本地 Git 推送，全部交由后置 Actions 步骤安全完成
+    # 4. 执行 ETF 动量选股策略
     - name: Run ETF Quant Model
+      if: ${{ github.event.inputs.strategy == '' || github.event.inputs.strategy == 'all' || github.event.inputs.strategy == 'etf' }}
       run: |
-        python scripts/quantum_etf_dingtalk.py --once --no-publish
+        DATE_ARG=""
+        if [ -n "${{ github.event.inputs.date }}" ]; then
+          DATE_ARG="--date ${{ github.event.inputs.date }}"
+        fi
+        python scripts/quantum_etf_dingtalk.py --once --no-publish $DATE_ARG
 
-    # 5. 执行白马股均值回归监控计算并生成静态 JSON
+    # 5. 执行白马股均值回归监控策略
     - name: Run Whitehorse Quant Model
+      if: ${{ github.event.inputs.strategy == '' || github.event.inputs.strategy == 'all' || github.event.inputs.strategy == 'whitehorse' }}
       run: |
-        python scripts/quantum_etf_whitehorse.py --once --no-publish
+        DATE_ARG=""
+        if [ -n "${{ github.event.inputs.date }}" ]; then
+          DATE_ARG="--date ${{ github.event.inputs.date }}"
+        fi
+        python scripts/quantum_etf_whitehorse.py --once --no-publish $DATE_ARG
 
-    # 5. 将新数据与历史归档提交并安全推送回本仓库
+    # 6. 将新数据与历史归档提交并安全推送回本仓库
     - name: Commit & Push changes
       run: |
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git add data/
         # 如果文件没有变化，则跳过 commit，防止 Action 任务因无改动提交而报错中止
-        git diff-index --quiet HEAD || git commit -m "auto: update etf data & history via Actions"
+        git diff-index --quiet HEAD || git commit -m "auto: update quant data $(date +'%Y-%m-%d') via Actions"
         git push
