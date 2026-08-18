@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       strategy:
-        description: '运行策略 (all / etf / whitehorse)'
+        description: '运行策略 (all / etf / whitehorse / us_stock)'
         required: false
         default: 'all'
         type: choice
@@ -13,6 +13,7 @@ on:
           - all
           - etf
           - whitehorse
+          - us_stock
       date:
         description: '查询日期 YYYY-MM-DD（留空=今天）'
         required: false
@@ -88,4 +89,5 @@ jobs:
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
         git add data/
         git commit -m "Auto-update quant data for $(date +'%Y-%m-%d')" || exit 0
+        git pull --rebase origin main
         git push
