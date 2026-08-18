@@ -67,14 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadWhitehorseData(targetDate) {
     showLoading();
-    let url = targetDate ? `/api/whitehorse-data?date=${targetDate}` : '/data/whitehorse_data.json';
-    if (!targetDate && window.location.hostname === 'localhost') {
-        url = `/api/whitehorse-data?date=${today}`;
-    }
-    if (window.location.protocol === 'file:') {
-        url = 'data/whitehorse_data.json';
-        if (targetDate) url = `data/history/whitehorse_data_${targetDate}.json`;
-    }
+    let url = targetDate ? `data/history/whitehorse_data_${targetDate}.json` : 'data/whitehorse_data.json';
 
     try {
       const fetchUrl = url.includes('?') ? `${url}&_t=${Date.now()}` : `${url}?_t=${Date.now()}`;
