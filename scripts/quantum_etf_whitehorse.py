@@ -474,9 +474,9 @@ def build_markdown_message(signals: Dict, is_friday: bool, target_date: str) -> 
     has_signals = bool(signals['buy'] or signals['buy2'] or signals['sell'] or signals['near'])
     
     if has_signals:
-        title = f"{target_date} 白马股均线偏离预警"
+        title = f"Testing {target_date} 白马股均线偏离预警"
     elif is_friday:
-        title = f"{target_date} 白马股周度汇总"
+        title = f"Testing {target_date} 白马股周度汇总"
     else:
         return None
 
