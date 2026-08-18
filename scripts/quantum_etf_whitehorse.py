@@ -548,6 +548,26 @@ def run_whitehorse_analysis(target_date: str, no_publish: bool, dingtalk_token: 
 
     logging.info("开始白马股巡检 (目标日期: %s, 是否为今天: %s)...", target_date, is_today)
 
+    website_dir = find_website_dir()
+    history_file = website_dir / "data" / "history" / f"whitehorse_data_{target_date}.json"
+    
+    if history_file.exists():
+        logging.info("发现历史归档数据 %s 已经存在，直接读取...", history_file)
+        try:
+            import json
+            with open(history_file, "r", encoding="utf-8") as f:
+                history_data = json.load(f)
+            
+            json_file = website_dir / "data" / "whitehorse_data.json"
+            with open(json_file, "w", encoding="utf-8") as f:
+                json.dump(history_data, f, ensure_ascii=False, indent=2)
+            logging.info("已将历史归档直接覆盖为当前展示数据 whitehorse_data.json。")
+            
+            logging.info("因数据已存在，跳过重新计算和推送流程。")
+            return
+        except Exception as e:
+            logging.error("尝试加载现有历史数据失败: %s，将重新计算...", e)
+
     # 1. 尝试初始化连接 mootdx 
     mootdx = None
     try:
