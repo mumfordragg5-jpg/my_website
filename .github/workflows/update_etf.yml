@@ -45,7 +45,7 @@ jobs:
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas requests mootdx
+        pip install pandas requests mootdx yfinance
 
     # 4. 执行 ETF 动量选股策略
     - name: Run ETF Quant Model
@@ -58,21 +58,34 @@ jobs:
         python scripts/quantum_etf_dingtalk.py --once --no-publish $DATE_ARG
 
     # 5. 执行白马股均值回归监控策略
-    - name: Run Whitehorse Quant Model
+    - name: Run Whitehorse Model
       if: ${{ github.event.inputs.strategy == '' || github.event.inputs.strategy == 'all' || github.event.inputs.strategy == 'whitehorse' }}
+      env:
+        DINGTALK_TOKEN: ${{ secrets.DINGTALK_TOKEN }}
       run: |
         DATE_ARG=""
         if [ -n "${{ github.event.inputs.date }}" ]; then
           DATE_ARG="--date ${{ github.event.inputs.date }}"
         fi
-        python scripts/quantum_etf_whitehorse.py --once --no-publish $DATE_ARG
+        python scripts/quantum_etf_whitehorse.py --no-publish $DATE_ARG
 
-    # 6. 将新数据与历史归档提交并安全推送回本仓库
-    - name: Commit & Push changes
+    # 6. 执行美股监控策略
+    - name: Run US Stock Model
+      if: ${{ github.event.inputs.strategy == '' || github.event.inputs.strategy == 'all' || github.event.inputs.strategy == 'us_stock' }}
+      env:
+        DINGTALK_TOKEN: ${{ secrets.DINGTALK_TOKEN }}
       run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        DATE_ARG=""
+        if [ -n "${{ github.event.inputs.date }}" ]; then
+          DATE_ARG="--date ${{ github.event.inputs.date }}"
+        fi
+        python scripts/quantum_us_stock.py $DATE_ARG
+
+    # 7. 自动提交并推送到 GitHub 仓库 (统一推送所有变更)
+    - name: Commit and Push Data
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
         git add data/
-        # 如果文件没有变化，则跳过 commit，防止 Action 任务因无改动提交而报错中止
-        git diff-index --quiet HEAD || git commit -m "auto: update quant data $(date +'%Y-%m-%d') via Actions"
+        git commit -m "Auto-update quant data for $(date +'%Y-%m-%d')" || exit 0
         git push

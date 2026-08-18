@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>科技马前卒 | 美股监控</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    
+    .rankings-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 40px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.04); }
+    .panel-header { padding: 20px 24px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.01); display: flex; justify-content: space-between; align-items: center; }
+    [data-theme="dark"] .panel-header { background: rgba(255,255,255,0.02); }
+    .panel-title { font-size: 1.2rem; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+    .panel-meta { font-size: 0.82rem; color: var(--text-muted); }
+    
+    .table-container { overflow-x: auto; width: 100%; }
+    .rank-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+    .rank-table th { background: var(--bg-primary); padding: 14px 20px; font-weight: 600; color: var(--text-secondary); border-bottom: 1px solid var(--border); font-size: 0.82rem; white-space: nowrap; }
+    .rank-table td { padding: 14px 20px; border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: middle; white-space: nowrap; }
+    .rank-table tbody tr:hover { background: rgba(232, 93, 58, 0.02); }
+    [data-theme="dark"] .rank-table tbody tr:hover { background: rgba(255, 111, 74, 0.02); }
+    
+    .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+    .status-normal { background: rgba(136, 136, 160, 0.1); color: var(--text-secondary); }
+    .status-buy { background: rgba(7, 193, 96, 0.15); color: #07c160; }
+    .status-panic { background: rgba(224, 60, 60, 0.15); color: #e03c3c; }
+    
+    .panel-date-picker { display: flex; align-items: center; gap: 8px; }
+    .custom-date-picker { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text-primary); font-size: 0.85rem; font-family: inherit; outline: none; cursor: pointer; }
+    .reset-date-btn { padding: 6px 12px; border: 1px solid var(--accent); border-radius: 6px; background: transparent; color: var(--accent); font-size: 0.85rem; font-weight: 600; cursor: pointer; display: none; }
+    .reset-date-btn:hover { background: var(--accent); color: #fff; }
+
+    .vix-card {
+        background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,0.04);
+        display: flex; align-items: center; justify-content: space-between; margin-bottom: 40px;
+    }
+    .vix-title { font-size: 1.2rem; font-weight: 800; color: var(--text-primary); margin-bottom: 4px; }
+    .vix-subtitle { font-size: 0.85rem; color: var(--text-muted); }
+    .vix-value { font-size: 2.5rem; font-weight: 800; font-family: 'Inter', monospace; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav-inner">
+      <a href="index.html" class="site-logo">
+        <span class="logo-icon">🏇</span>科技马前卒
+      </a>
+      <div class="nav-right">
+        <ul class="nav-links" id="navLinks">
+          <li><a href="index.html">首页</a></li>
+          <li><a href="etf.html">ETF 动量</a></li>
+          <li><a href="whitehorse.html">白马股均线</a></li>
+          <li><a href="us_stock.html" class="nav-active">美股监控</a></li>
+          <li><a href="index.html#articles">文章</a></li>
+          <li><a href="index.html#about">关于</a></li>
+        </ul>
+        <button class="theme-toggle" id="themeToggle" aria-label="切换主题">🌙</button>
+        <button class="menu-toggle" id="menuToggle" aria-label="菜单"><span></span><span></span><span></span></button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="etf-container">
+    <div class="etf-hero">
+      <div class="hero-badge">US Stock 极值监控</div>
+      <h1 class="etf-hero-title">捕捉美股恐慌底部</h1>
+      <p class="etf-hero-subtitle">监控纳斯达克 100、标普 500 ETF 及 VIX 恐慌指数。当极度恐慌或大幅回撤时，提示绝佳的抄底机会。</p>
+    </div>
+    
+    <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 24px;">
+      <div class="panel-meta" id="updateTime">正在同步最新行情数据...</div>
+      <div class="panel-date-picker">
+        <label for="historyDateInput" style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 600;">历史数据：</label>
+        <input type="date" id="historyDateInput" class="custom-date-picker">
+        <button id="btnResetDate" class="reset-date-btn">返回今日</button>
+      </div>
+    </div>
+
+    <!-- VIX Panel -->
+    <div class="vix-card" id="vix-panel">
+        <div>
+            <div class="vix-title">📈 VIX 恐慌指数 (CBOE)</div>
+            <div class="vix-subtitle">当前市场情绪指标，≥35 通常被视为极度恐慌底。</div>
+        </div>
+        <div style="text-align: right;">
+            <div class="vix-value" id="vix-val">--</div>
+            <div class="status-badge" id="vix-status" style="display:inline-block; margin-top:8px;">获取中...</div>
+        </div>
+    </div>
+
+    <div class="rankings-panel">
+      <div class="panel-header"><h2 class="panel-title">📊 宽基 ETF 监控 <span style="font-size:0.8rem;color:var(--text-muted);font-weight:normal;">(纳指 QQQ / 标普 SPY)</span></h2></div>
+      <div class="table-container">
+        <table class="rank-table">
+          <thead>
+            <tr>
+                <th>代码</th>
+                <th>名称</th>
+                <th style="text-align:right">当前价</th>
+                <th style="text-align:right">今日涨跌</th>
+                <th style="text-align:right">52周新高</th>
+                <th style="text-align:right">高点回撤</th>
+                <th style="text-align:right">MA120</th>
+                <th style="text-align:right">均线偏离</th>
+                <th style="text-align:center">状态</th>
+            </tr>
+          </thead>
+          <tbody id="table-us-stocks"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand"><span class="logo-icon">🏇</span><span>科技马前卒</span></div>
+      <ul class="footer-links">
+        <li><a href="index.html">首页</a></li>
+        <li><a href="etf.html">ETF 动量</a></li>
+        <li><a href="whitehorse.html">白马股均线</a></li>
+        <li><a href="us_stock.html">美股监控</a></li>
+      </ul>
+      <p class="footer-copy">&copy; 2026 科技马前卒</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js?v=2"></script>
+  <script src="js/us_stock.js?v=1"></script>
+</body>
+</html>
