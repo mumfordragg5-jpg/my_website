@@ -33,11 +33,11 @@ document.addEventListener('DOMContentLoaded', () => {
     container.innerHTML = list.map(item => `
       <li class="wh-signal-item">
         <div class="wh-stock-info">
-          <span class="wh-stock-name">${item.emoji} ${item.name}</span>
+          <span class="wh-stock-name">${item.emoji ? item.emoji + ' ' : ''}${item.name}</span>
           <span class="wh-stock-code">${item.code}</span>
         </div>
         <div>
-          <div class="wh-stock-target">${item.target ? item.target.toFixed(2) : '-'}</div>
+          <div class="wh-stock-target">${item.price ? item.price.toFixed(2) : '-'}</div>
           <div class="wh-stock-gap" style="color: ${item.gap_pct < 0 ? '#e03c3c' : '#07c160'}">偏离 ${item.gap_pct > 0 ? '+' : ''}${item.gap_pct}%</div>
         </div>
       </li>
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return `
       <tr>
         <td><span style="color:var(--text-muted);font-size:0.8rem">${item.code}</span></td>
-        <td style="font-weight:600">${item.emoji} ${item.name}</td>
+        <td style="font-weight:600">${item.emoji ? item.emoji + ' ' : ''}${item.name}</td>
         <td style="text-align:right;font-weight:700">${item.price.toFixed(2)}</td>
         <td style="text-align:right;color:${chgColor}">${chgSign}${item.change_pct.toFixed(2)}%</td>
         <td style="text-align:right">${item.ma.toFixed(2)}</td>
@@ -75,7 +75,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       
-      updateTimeEl.innerHTML = `✅ 数据基准日期: <strong style="color:var(--text-primary)">${data.target_date}</strong> (最后计算: ${data.last_update})`;
+      const parsedDate = data.update_time ? data.update_time.split(' ')[0] : '今日';
+      updateTimeEl.innerHTML = `✅ 数据基准日期: <strong style="color:var(--text-primary)">${parsedDate}</strong> (最后计算: ${data.update_time})`;
       
       const sigs = data.signals || {};
       const allBuys = [...(sigs.buy || []), ...(sigs.buy2 || [])];
