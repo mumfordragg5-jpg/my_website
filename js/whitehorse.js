@@ -37,7 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
           <span class="wh-stock-code">${item.code}</span>
         </div>
         <div>
-          <div class="wh-stock-target">${item.price ? item.price.toFixed(2) : '-'}</div>
+          <div class="wh-stock-target">
+            ${item.price ? item.price.toFixed(2) : '-'} 
+            <span style="font-size:0.8rem; font-weight:600; color: ${item.change_pct > 0 ? '#e03c3c' : (item.change_pct < 0 ? '#07c160' : 'inherit')}">
+              ${item.change_pct > 0 ? '+' : ''}${item.change_pct ? item.change_pct.toFixed(2) : '0.00'}%
+            </span>
+          </div>
           <div class="wh-stock-gap" style="color: ${item.gap_pct < 0 ? '#e03c3c' : '#07c160'}">偏离 ${item.gap_pct > 0 ? '+' : ''}${item.gap_pct}%</div>
         </div>
       </li>
