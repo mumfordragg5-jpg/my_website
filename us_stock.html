@@ -73,8 +73,9 @@
     
     <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 24px;">
       <div class="panel-meta" id="updateTime">正在同步最新行情数据...</div>
-      <div class="panel-date-picker">
-        <label for="historyDateInput" style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 600;">历史数据：</label>
+      <div class="panel-date-picker" style="display:flex; align-items:center; gap:8px;">
+        <a href="https://github.com/mumfordragg5-jpg/my_website/actions/workflows/update_etf.yml" target="_blank" class="reset-date-btn" style="display:inline-block; text-decoration:none; color:var(--text-secondary); border-color:var(--border);">手动更新数据</a>
+        <label for="historyDateInput" style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; margin-left: 12px;">历史数据：</label>
         <input type="date" id="historyDateInput" class="custom-date-picker">
         <button id="btnResetDate" class="reset-date-btn">返回今日</button>
       </div>
