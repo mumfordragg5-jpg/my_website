@@ -667,7 +667,7 @@ def run_whitehorse_analysis(target_date: str, no_publish: bool, dingtalk_token: 
             "ma": ma,
             "buy1": buy1,
             "buy2": buy2,
-            "sell": sell if is_range else None,
+            "sell": sell if (is_range or is_hold) else None,
             "gap_pct": gap_pct,
             "change_pct": change_pct,
             "status": status_str,

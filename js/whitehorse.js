@@ -67,7 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const gapText = item.gap_pct != null ? `${item.gap_pct > 0 ? '+' : ''}${Number(item.gap_pct).toFixed(2)}%` : '--';
     const buy1Text = item.buy1 != null ? Number(item.buy1).toFixed(2) : '--';
     const buy2Text = item.buy2 != null ? Number(item.buy2).toFixed(2) : '--';
-    const sellCol = showSell ? `<td style="text-align:right">${item.sell != null ? Number(item.sell).toFixed(2) : '-'}</td>` : '';
+    const sellVal = item.sell != null ? Number(item.sell) : (item.ma != null ? Number(item.ma * 1.12) : null);
+    const sellCol = showSell ? `<td style="text-align:right">${sellVal != null ? sellVal.toFixed(2) : '-'}</td>` : '';
     const statusText = item.status || '正常';
     
     return `
@@ -120,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       tableRange.innerHTML = rangeItems.map(x => renderRow(x, true)).join('');
       tableTrend.innerHTML = trendItems.map(x => renderRow(x, false)).join('');
-      tableHold.innerHTML = holdItems.map(x => renderRow(x, false)).join('');
+      tableHold.innerHTML = holdItems.map(x => renderRow(x, true)).join('');
 
     } catch (e) {
       console.error(e);
