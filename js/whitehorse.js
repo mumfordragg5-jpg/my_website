@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const holdItems = all.filter(x => (x.category || x.type || '').includes('持有')).sort((a,b) => (b.gap_pct || 0) - (a.gap_pct || 0));
 
       tableRange.innerHTML = rangeItems.map(x => renderRow(x, true)).join('');
-      tableTrend.innerHTML = trendItems.map(x => renderRow(x, false)).join('');
+      tableTrend.innerHTML = trendItems.map(x => renderRow(x, true)).join('');
       tableHold.innerHTML = holdItems.map(x => renderRow(x, true)).join('');
 
     } catch (e) {
