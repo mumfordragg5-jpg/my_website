@@ -105,10 +105,18 @@ document.addEventListener('DOMContentLoaded', () => {
       renderList('list-near', 'count-near', sigs.near || []);
       renderList('list-sell', 'count-sell', sigs.sell || []);
 
-      const all = sigs.all_status || [];
-      const rangeItems = all.filter(x => x.category.includes('横盘')).sort((a,b) => b.gap_pct - a.gap_pct);
-      const trendItems = all.filter(x => x.category.includes('趋势')).sort((a,b) => b.gap_pct - a.gap_pct);
-      const holdItems = all.filter(x => x.category.includes('持有')).sort((a,b) => b.gap_pct - a.gap_pct);
+      let all = [];
+      if (Array.isArray(data)) {
+        all = data;
+      } else if (Array.isArray(data.all_status)) {
+        all = data.all_status;
+      } else if (sigs && Array.isArray(sigs.all_status)) {
+        all = sigs.all_status;
+      }
+
+      const rangeItems = all.filter(x => (x.category || x.type || '').includes('横盘')).sort((a,b) => (b.gap_pct || 0) - (a.gap_pct || 0));
+      const trendItems = all.filter(x => (x.category || x.type || '').includes('趋势')).sort((a,b) => (b.gap_pct || 0) - (a.gap_pct || 0));
+      const holdItems = all.filter(x => (x.category || x.type || '').includes('持有')).sort((a,b) => (b.gap_pct || 0) - (a.gap_pct || 0));
 
       tableRange.innerHTML = rangeItems.map(x => renderRow(x, true)).join('');
       tableTrend.innerHTML = trendItems.map(x => renderRow(x, false)).join('');
