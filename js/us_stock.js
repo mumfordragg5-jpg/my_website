@@ -13,12 +13,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderRow(item) {
-    const chgColor = item.change_pct > 0 ? '#07c160' : (item.change_pct < 0 ? '#e03c3c' : 'inherit');
-    const chgSign = item.change_pct > 0 ? '+' : '';
+    const chg = item.change_pct != null ? Number(item.change_pct) : null;
+    const chgColor = chg != null ? (chg > 0 ? '#07c160' : (chg < 0 ? '#e03c3c' : 'inherit')) : 'inherit';
+    const chgSign = chg != null && chg > 0 ? '+' : '';
+    const chgText = chg != null ? `${chgSign}${chg.toFixed(2)}%` : '--';
     
     // Calculate drawdowns
-    const dropFromHigh = ((item.price - item.high_52w) / item.high_52w * 100).toFixed(2);
-    const dropFromMa = item.ma120 ? ((item.price - item.ma120) / item.ma120 * 100).toFixed(2) : '-';
+    const price = item.price != null ? Number(item.price) : null;
+    const high52 = item.high_52w != null ? Number(item.high_52w) : null;
+    const ma120 = item.ma120 != null ? Number(item.ma120) : null;
+
+    const dropFromHigh = (price != null && high52 != null && high52 > 0) ? ((price - high52) / high52 * 100).toFixed(2) : '-';
+    const dropFromMa = (price != null && ma120 != null && ma120 > 0) ? ((price - ma120) / ma120 * 100).toFixed(2) : '-';
     
     const statusText = item.is_buy ? '触发买入' : '正常';
     const statusClass = item.is_buy ? 'status-buy' : 'status-normal';
@@ -27,12 +33,12 @@ document.addEventListener('DOMContentLoaded', () => {
       <tr>
         <td><span style="color:var(--text-muted);font-size:0.8rem">${item.code}</span></td>
         <td style="font-weight:600">${item.name}</td>
-        <td style="text-align:right;font-weight:700">${item.price.toFixed(2)}</td>
-        <td style="text-align:right;color:${chgColor}">${chgSign}${item.change_pct.toFixed(2)}%</td>
-        <td style="text-align:right">${item.high_52w.toFixed(2)}</td>
-        <td style="text-align:right;color:${dropFromHigh <= -10 ? '#07c160' : 'inherit'}">${dropFromHigh}%</td>
-        <td style="text-align:right">${item.ma120 ? item.ma120.toFixed(2) : '-'}</td>
-        <td style="text-align:right;color:${dropFromMa <= -5 ? '#07c160' : 'inherit'}">${dropFromMa}%</td>
+        <td style="text-align:right;font-weight:700">${price != null ? price.toFixed(2) : '--'}</td>
+        <td style="text-align:right;color:${chgColor}">${chgText}</td>
+        <td style="text-align:right">${high52 != null ? high52.toFixed(2) : '--'}</td>
+        <td style="text-align:right;color:${dropFromHigh !== '-' && Number(dropFromHigh) <= -10 ? '#07c160' : 'inherit'}">${dropFromHigh !== '-' ? dropFromHigh + '%' : '-'}</td>
+        <td style="text-align:right">${ma120 != null ? ma120.toFixed(2) : '-'}</td>
+        <td style="text-align:right;color:${dropFromMa !== '-' && Number(dropFromMa) <= -5 ? '#07c160' : 'inherit'}">${dropFromMa !== '-' ? dropFromMa + '%' : '-'}</td>
         <td style="text-align:center"><span class="status-badge ${statusClass}">${statusText}</span></td>
       </tr>
     `;

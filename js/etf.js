@@ -72,27 +72,21 @@ async function loadEtfData() {
 async function loadHistoryData(date) {
   try {
     let response;
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     
-    // 优先尝试向本地 API 发起请求（如果本地运行了 local_server.py 提供的接口）
-    try {
-      response = await fetch(`api/etf-data?date=${date}&_t=${Date.now()}`);
-      if (response.status === 404) {
-        // 如果 API 返回 404 错误（例如在 GitHub Pages 上直接 404，或者路径未匹配）
-        throw new Error('API route not found, fallback to static file');
-      } else if (!response.ok) {
-        // 如果服务器返回了报错（比如由于非交易日导致后端执行脚本返回错误）
-        const errText = await response.text();
-        throw new Error(`API error: ${errText}`);
+    if (isLocal) {
+      try {
+        response = await fetch(`api/etf-data?date=${date}&_t=${Date.now()}`);
+        if (!response.ok) throw new Error('Local API not ok');
+      } catch (e) {
+        response = await fetch(`data/history/etf_data_${date}.json?_t=${Date.now()}`);
       }
-    } catch (apiError) {
-      console.warn('本地 API 不可用或返回失败，正在回退至直接读取静态 JSON 归档文件...', apiError);
-      
-      // 如果本地 API 出错或不可用（例如直接双击打开 html，或者部署在线上 GitHub Pages 时）
-      // 退回到直接请求静态文件
+    } else {
       response = await fetch(`data/history/etf_data_${date}.json?_t=${Date.now()}`);
-      if (!response.ok) {
-        throw new Error(`未找到 ${date} 的静态历史归档数据`);
-      }
+    }
+
+    if (!response || !response.ok) {
+      throw new Error(`未找到 ${date} 的静态历史归档数据`);
     }
     
     etfData = await response.json();

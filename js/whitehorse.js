@@ -25,47 +25,63 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderList(containerId, countId, list) {
     const container = document.getElementById(containerId);
     const count = document.getElementById(countId);
+    if (!container || !count) return;
     count.textContent = list.length;
     if (list.length === 0) {
       container.innerHTML = `<li class="wh-signal-item empty-signal">暂无信号</li>`;
       return;
     }
-    container.innerHTML = list.map(item => `
-      <li class="wh-signal-item">
-        <div class="wh-stock-info">
-          <span class="wh-stock-name">${item.emoji ? item.emoji + ' ' : ''}${item.name}</span>
-          <span class="wh-stock-code">${item.code}</span>
-        </div>
-        <div>
-          <div class="wh-stock-target">
-            ${item.price ? item.price.toFixed(2) : '-'} 
-            <span style="font-size:0.8rem; font-weight:600; color: ${item.change_pct > 0 ? '#e03c3c' : (item.change_pct < 0 ? '#07c160' : 'inherit')}">
-              ${item.change_pct > 0 ? '+' : ''}${item.change_pct ? item.change_pct.toFixed(2) : '0.00'}%
-            </span>
+    container.innerHTML = list.map(item => {
+      const chg = item.change_pct != null ? Number(item.change_pct) : null;
+      const chgHtml = chg != null ? `
+        <span style="font-size:0.8rem; font-weight:600; color: ${chg > 0 ? '#e03c3c' : (chg < 0 ? '#07c160' : 'inherit')}">
+          ${chg > 0 ? '+' : ''}${chg.toFixed(2)}%
+        </span>` : '';
+      const gap = item.gap_pct != null ? Number(item.gap_pct) : 0;
+      return `
+        <li class="wh-signal-item">
+          <div class="wh-stock-info">
+            <span class="wh-stock-name">${item.emoji ? item.emoji + ' ' : ''}${item.name || item.code}</span>
+            <span class="wh-stock-code">${item.code}</span>
           </div>
-          <div class="wh-stock-gap" style="color: ${item.gap_pct < 0 ? '#e03c3c' : '#07c160'}">偏离 ${item.gap_pct > 0 ? '+' : ''}${item.gap_pct}%</div>
-        </div>
-      </li>
-    `).join('');
+          <div>
+            <div class="wh-stock-target">
+              ${item.price != null ? Number(item.price).toFixed(2) : '-'} 
+              ${chgHtml}
+            </div>
+            <div class="wh-stock-gap" style="color: ${gap < 0 ? '#e03c3c' : '#07c160'}">偏离 ${gap > 0 ? '+' : ''}${gap}%</div>
+          </div>
+        </li>
+      `;
+    }).join('');
   }
 
   function renderRow(item, showSell) {
-    const chgColor = item.change_pct > 0 ? '#e03c3c' : (item.change_pct < 0 ? '#07c160' : 'inherit');
-    const chgSign = item.change_pct > 0 ? '+' : '';
-    let sellCol = showSell ? `<td style="text-align:right">${item.sell ? item.sell.toFixed(2) : '-'}</td>` : '';
+    const chg = item.change_pct != null ? Number(item.change_pct) : null;
+    const chgColor = chg != null ? (chg > 0 ? '#e03c3c' : (chg < 0 ? '#07c160' : 'inherit')) : 'inherit';
+    const chgSign = chg != null && chg > 0 ? '+' : '';
+    const chgText = chg != null ? `${chgSign}${chg.toFixed(2)}%` : '--';
+    
+    const priceText = item.price != null ? Number(item.price).toFixed(2) : '--';
+    const maText = item.ma != null ? Number(item.ma).toFixed(2) : '--';
+    const gapText = item.gap_pct != null ? `${item.gap_pct > 0 ? '+' : ''}${Number(item.gap_pct).toFixed(2)}%` : '--';
+    const buy1Text = item.buy1 != null ? Number(item.buy1).toFixed(2) : '--';
+    const buy2Text = item.buy2 != null ? Number(item.buy2).toFixed(2) : '--';
+    const sellCol = showSell ? `<td style="text-align:right">${item.sell != null ? Number(item.sell).toFixed(2) : '-'}</td>` : '';
+    const statusText = item.status || '正常';
     
     return `
       <tr>
         <td><span style="color:var(--text-muted);font-size:0.8rem">${item.code}</span></td>
-        <td style="font-weight:600">${item.emoji ? item.emoji + ' ' : ''}${item.name}</td>
-        <td style="text-align:right;font-weight:700">${item.price.toFixed(2)}</td>
-        <td style="text-align:right;color:${chgColor}">${chgSign}${item.change_pct.toFixed(2)}%</td>
-        <td style="text-align:right">${item.ma.toFixed(2)}</td>
-        <td style="text-align:right">${item.gap_pct > 0 ? '+' : ''}${item.gap_pct}%</td>
-        <td style="text-align:right;color:#07c160">${item.buy1.toFixed(2)}</td>
-        <td style="text-align:right;color:#07c160">${item.buy2.toFixed(2)}</td>
+        <td style="font-weight:600">${item.emoji ? item.emoji + ' ' : ''}${item.name || item.code}</td>
+        <td style="text-align:right;font-weight:700">${priceText}</td>
+        <td style="text-align:right;color:${chgColor}">${chgText}</td>
+        <td style="text-align:right">${maText}</td>
+        <td style="text-align:right">${gapText}</td>
+        <td style="text-align:right;color:#07c160">${buy1Text}</td>
+        <td style="text-align:right;color:#07c160">${buy2Text}</td>
         ${sellCol}
-        <td style="text-align:center"><span class="status-badge ${getStatusClass(item.status)}">${item.status}</span></td>
+        <td style="text-align:center"><span class="status-badge ${getStatusClass(statusText)}">${statusText}</span></td>
       </tr>
     `;
   }
