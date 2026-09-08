@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>做T网格监控 | 科技马前卒</title>
+  <meta name="description" content="针对特定底仓个股的日内与波段网格做T量化监控系统，实时追踪低吸买点与高抛卖点偏离。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>">
+  <style>
+    .etf-container { max-width: var(--max-width); margin: 0 auto; padding: 40px 24px 80px; }
+    .etf-hero { text-align: center; margin-bottom: 48px; }
+    .etf-hero-title { font-size: 2.5rem; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 12px; background: linear-gradient(135deg, var(--accent), #ff9a76); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .etf-hero-subtitle { font-size: 1.05rem; color: var(--text-secondary); max-width: 650px; margin: 0 auto; }
+    
+    .wh-dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 40px; }
+    .etf-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-md); position: relative; overflow: hidden; display: flex; flex-direction: column; transition: all var(--transition); }
+    .etf-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--accent); }
+    
+    .wh-signal-title { font-size: 1.05rem; font-weight: 800; color: var(--text-primary); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; }
+    .wh-signal-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+    .wh-signal-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; }
+    .wh-signal-item.empty-signal { justify-content: center; color: var(--text-muted); font-size: 0.85rem; padding: 16px; }
+    .wh-stock-info { display: flex; flex-direction: column; }
+    .wh-stock-name { font-weight: 700; color: var(--text-primary); font-size: 0.95rem; }
+    .wh-stock-code { font-size: 0.75rem; color: var(--text-muted); }
+    .wh-stock-target { text-align: right; font-weight: 800; color: var(--accent); font-size: 1.05rem; }
+    .wh-stock-gap { font-size: 0.78rem; font-weight: 600; }
+    
+    .rankings-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-md); overflow: hidden; margin-bottom: 32px; }
+    .panel-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; background: rgba(0,0,0,0.02); }
+    [data-theme="dark"] .panel-header { background: rgba(255,255,255,0.02); }
+    .panel-title { font-size: 1.2rem; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+    .panel-meta { font-size: 0.82rem; color: var(--text-muted); }
+    
+    .table-container { overflow-x: auto; width: 100%; }
+    .rank-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+    .rank-table th { background: var(--bg-primary); padding: 14px 20px; font-weight: 600; color: var(--text-secondary); border-bottom: 1px solid var(--border); font-size: 0.82rem; white-space: nowrap; }
+    .rank-table td { padding: 14px 20px; border-bottom: 1px solid var(--border); color: var(--text-primary); vertical-align: middle; white-space: nowrap; }
+    .rank-table tbody tr:hover { background: rgba(232, 93, 58, 0.02); }
+    [data-theme="dark"] .rank-table tbody tr:hover { background: rgba(255, 111, 74, 0.02); }
+    
+    .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+    .status-normal { background: rgba(136, 136, 160, 0.1); color: var(--text-secondary); }
+    .status-near { background: rgba(245, 166, 35, 0.15); color: #f5a623; }
+    .status-buy { background: rgba(7, 193, 96, 0.15); color: #07c160; }
+    .status-sell { background: rgba(224, 60, 60, 0.15); color: #e03c3c; }
+    
+    .grid-progress-wrap { width: 120px; display: flex; flex-direction: column; gap: 4px; }
+    .grid-progress-bar { width: 100%; height: 6px; background: rgba(136, 136, 160, 0.15); border-radius: 3px; overflow: hidden; position: relative; }
+    .grid-progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
+    .grid-progress-label { font-size: 0.72rem; color: var(--text-muted); display: flex; justify-content: space-between; }
+    
+    .panel-date-picker { display: flex; align-items: center; gap: 8px; }
+    .custom-date-picker { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text-primary); font-size: 0.85rem; font-family: inherit; outline: none; cursor: pointer; }
+    .reset-date-btn { padding: 6px 12px; border: 1px solid var(--accent); border-radius: 6px; background: transparent; color: var(--accent); font-size: 0.85rem; font-weight: 600; cursor: pointer; text-decoration: none; }
+    .reset-date-btn:hover { background: var(--accent); color: #fff; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav-inner">
+      <a href="index.html" class="site-logo">
+        <span class="logo-icon">🏇</span>科技马前卒
+      </a>
+      <div class="nav-right">
+        <ul class="nav-links" id="navLinks">
+          <li><a href="index.html">首页</a></li>
+          <li><a href="etf.html">ETF 动量</a></li>
+          <li><a href="whitehorse.html">白马股均线</a></li>
+          <li><a href="us_stock.html">美股监控</a></li>
+          <li><a href="t_trade.html" class="nav-active">做T监控</a></li>
+          <li><a href="index.html#articles">文章</a></li>
+          <li><a href="index.html#about">关于</a></li>
+        </ul>
+        <button class="theme-toggle" id="themeToggle" aria-label="切换主题">🌙</button>
+        <button class="menu-toggle" id="menuToggle" aria-label="菜单"><span></span><span></span><span></span></button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="etf-container">
+    <div class="etf-hero">
+      <div class="hero-badge">T-Trade 网格波段监控</div>
+      <h1 class="etf-hero-title">高抛低吸 滚动降本</h1>
+      <p class="etf-hero-subtitle">针对特定底仓个股设定的做T网格监控，实时捕捉低吸接回与高抛止盈点位。</p>
+    </div>
+    
+    <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 24px; flex-wrap:wrap; gap:12px;">
+      <div class="panel-meta" id="updateTime">正在同步最新行情数据...</div>
+      <div class="panel-date-picker">
+        <a href="https://github.com/mumfordragg5-jpg/my_website/actions/workflows/update_etf.yml" target="_blank" class="reset-date-btn" style="color:var(--text-secondary); border-color:var(--border);">手动更新数据</a>
+        <label for="historyDateInput" style="font-size: 0.82rem; color: var(--text-secondary); font-weight: 600; margin-left: 8px;">历史数据：</label>
+        <input type="date" id="historyDateInput" class="custom-date-picker">
+        <button id="btnResetDate" class="reset-date-btn" style="display:none;">返回今日</button>
+      </div>
+    </div>
+
+    <!-- 顶部信号卡片 -->
+    <div class="wh-dashboard">
+      <div class="etf-card" style="border-left-color: #07c160;">
+        <div class="wh-signal-title"><span>🟢 触发买入做T</span><span id="count-buy" style="background:#07c160;color:#fff;padding:2px 8px;border-radius:12px;font-size:0.8rem;">0</span></div>
+        <ul class="wh-signal-list" id="list-buy"><li class="wh-signal-item empty-signal">暂无信号</li></ul>
+      </div>
+      <div class="etf-card" style="border-left-color: #f5a623;">
+        <div class="wh-signal-title"><span>📉 临近买点 (&lt;1.0%)</span><span id="count-near-buy" style="background:#f5a623;color:#fff;padding:2px 8px;border-radius:12px;font-size:0.8rem;">0</span></div>
+        <ul class="wh-signal-list" id="list-near-buy"><li class="wh-signal-item empty-signal">暂无信号</li></ul>
+      </div>
+      <div class="etf-card" style="border-left-color: #e03c3c;">
+        <div class="wh-signal-title"><span>🚨 触发卖出做T</span><span id="count-sell" style="background:#e03c3c;color:#fff;padding:2px 8px;border-radius:12px;font-size:0.8rem;">0</span></div>
+        <ul class="wh-signal-list" id="list-sell"><li class="wh-signal-item empty-signal">暂无信号</li></ul>
+      </div>
+      <div class="etf-card" style="border-left-color: #ff9a76;">
+        <div class="wh-signal-title"><span>📈 临近卖点 (&lt;1.0%)</span><span id="count-near-sell" style="background:#ff9a76;color:#fff;padding:2px 8px;border-radius:12px;font-size:0.8rem;">0</span></div>
+        <ul class="wh-signal-list" id="list-near-sell"><li class="wh-signal-item empty-signal">暂无信号</li></ul>
+      </div>
+    </div>
+
+    <!-- 做T标的列表表格 -->
+    <div class="rankings-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">🎯 做T标的明细看板 <span style="font-size:0.8rem;color:var(--text-muted);font-weight:normal;">(底仓滚动操作)</span></h2>
+      </div>
+      <div class="table-container">
+        <table class="rank-table">
+          <thead>
+            <tr>
+              <th>代码</th>
+              <th>标的名称</th>
+              <th style="text-align:right">当前价</th>
+              <th style="text-align:right">今日涨跌</th>
+              <th style="text-align:right">今日振幅 (低~高)</th>
+              <th style="text-align:right">低吸买点</th>
+              <th style="text-align:right">高抛卖点</th>
+              <th style="text-align:right">做T空间</th>
+              <th style="text-align:center">网格区间位置</th>
+              <th style="text-align:right">距买点偏离</th>
+              <th style="text-align:right">距卖点偏离</th>
+              <th style="text-align:center">操作状态</th>
+              <th>策略备注</th>
+            </tr>
+          </thead>
+          <tbody id="table-t-stocks"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand"><span class="logo-icon">🏇</span><span>科技马前卒</span></div>
+      <ul class="footer-links">
+        <li><a href="index.html">首页</a></li>
+        <li><a href="etf.html">ETF 动量</a></li>
+        <li><a href="whitehorse.html">白马股均线</a></li>
+        <li><a href="us_stock.html">美股监控</a></li>
+        <li><a href="t_trade.html">做T监控</a></li>
+      </ul>
+      <p class="footer-copy">&copy; 2026 科技马前卒</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js?v=3"></script>
+  <script src="js/t_trade.js?v=1"></script>
+</body>
+</html>

@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       strategy:
-        description: '运行策略 (all / etf / whitehorse)'
+        description: '运行策略 (all / etf / whitehorse / t_trade)'
         required: false
         default: 'all'
         type: choice
@@ -13,6 +13,7 @@ on:
           - all
           - etf
           - whitehorse
+          - t_trade
       date:
         description: '查询日期 YYYY-MM-DD（留空=今天）'
         required: false
@@ -69,7 +70,19 @@ jobs:
         fi
         python scripts/quantum_etf_whitehorse.py --no-publish $DATE_ARG
 
-    # 6. 自动提交并推送到 GitHub 仓库
+    # 6. 执行做T网格交易监控策略
+    - name: Run T-Trade Model
+      if: ${{ github.event.inputs.strategy == '' || github.event.inputs.strategy == 'all' || github.event.inputs.strategy == 't_trade' }}
+      env:
+        DINGTALK_TOKEN: ${{ secrets.DINGTALK_TOKEN }}
+      run: |
+        DATE_ARG=""
+        if [ -n "${{ github.event.inputs.date }}" ]; then
+          DATE_ARG="--date ${{ github.event.inputs.date }}"
+        fi
+        python scripts/quantum_t_trade.py --once --no-publish $DATE_ARG
+
+    # 7. 自动提交并推送到 GitHub 仓库
     - name: Commit and Push Data
       run: |
         git config --global user.name 'github-actions[bot]'
