@@ -77,10 +77,10 @@ document.addEventListener('DOMContentLoaded', () => {
         <td style="font-weight:600">${item.emoji ? item.emoji + ' ' : ''}${item.name || item.code}</td>
         <td style="text-align:right;font-weight:700">${priceText}</td>
         <td style="text-align:right;color:${chgColor}">${chgText}</td>
-        <td style="text-align:right">${maText}</td>
         <td style="text-align:right">${gapText}</td>
         <td style="text-align:right;color:#07c160">${buy1Text}</td>
         <td style="text-align:right;color:#07c160">${buy2Text}</td>
+        <td style="text-align:right">${maText}</td>
         ${sellCol}
         <td style="text-align:center"><span class="status-badge ${getStatusClass(statusText)}">${statusText}</span></td>
       </tr>
@@ -115,9 +115,9 @@ document.addEventListener('DOMContentLoaded', () => {
         all = sigs.all_status;
       }
 
-      const rangeItems = all.filter(x => (x.category || x.type || '').includes('横盘')).sort((a,b) => (b.gap_pct || 0) - (a.gap_pct || 0));
-      const trendItems = all.filter(x => (x.category || x.type || '').includes('趋势')).sort((a,b) => (b.gap_pct || 0) - (a.gap_pct || 0));
-      const holdItems = all.filter(x => (x.category || x.type || '').includes('持有')).sort((a,b) => (b.gap_pct || 0) - (a.gap_pct || 0));
+      const rangeItems = all.filter(x => (x.category || x.type || '').includes('横盘')).sort((a,b) => (a.gap_pct || 0) - (b.gap_pct || 0));
+      const trendItems = all.filter(x => (x.category || x.type || '').includes('趋势')).sort((a,b) => (a.gap_pct || 0) - (b.gap_pct || 0));
+      const holdItems = all.filter(x => (x.category || x.type || '').includes('持有')).sort((a,b) => (a.gap_pct || 0) - (b.gap_pct || 0));
 
       tableRange.innerHTML = rangeItems.map(x => renderRow(x, true)).join('');
       tableTrend.innerHTML = trendItems.map(x => renderRow(x, true)).join('');
