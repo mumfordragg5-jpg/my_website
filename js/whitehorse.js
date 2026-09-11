@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function showLoading() {
     [tableRange, tableTrend, tableHold].forEach(t => {
-      t.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-muted);">加载中...</td></tr>`;
+      t.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--text-muted);">加载中...</td></tr>`;
     });
   }
 
@@ -62,6 +62,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const chgSign = chg != null && chg > 0 ? '+' : '';
     const chgText = chg != null ? `${chgSign}${chg.toFixed(2)}%` : '--';
     
+    // 股息率渲染
+    const divYield = item.dividend_yield != null ? Number(item.dividend_yield) : null;
+    let divCol = '<td style="text-align:right;color:var(--text-muted)">--</td>';
+    if (divYield != null && divYield > 0) {
+      const dps = item.dividend_per_share != null ? Number(item.dividend_per_share).toFixed(3) : '0.000';
+      const tip = item.dividend_desc ? `近1年每股派${dps}元 (${item.dividend_desc})` : `股息率: ${divYield.toFixed(2)}%`;
+      if (divYield >= 4.5) {
+        divCol = `<td style="text-align:right;font-weight:700;color:#07c160;" title="${tip}"><span style="background:rgba(7,193,96,0.12);padding:2px 6px;border-radius:4px;">${divYield.toFixed(2)}% 🔥</span></td>`;
+      } else if (divYield >= 2.0) {
+        divCol = `<td style="text-align:right;font-weight:600;color:var(--text-primary);" title="${tip}">${divYield.toFixed(2)}%</td>`;
+      } else {
+        divCol = `<td style="text-align:right;color:var(--text-secondary);" title="${tip}">${divYield.toFixed(2)}%</td>`;
+      }
+    }
+
     const priceText = item.price != null ? Number(item.price).toFixed(2) : '--';
     const maText = item.ma != null ? Number(item.ma).toFixed(2) : '--';
     const gapText = item.gap_pct != null ? `${item.gap_pct > 0 ? '+' : ''}${Number(item.gap_pct).toFixed(2)}%` : '--';
@@ -77,6 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td style="font-weight:600">${item.emoji ? item.emoji + ' ' : ''}${item.name || item.code}</td>
         <td style="text-align:right;font-weight:700">${priceText}</td>
         <td style="text-align:right;color:${chgColor}">${chgText}</td>
+        ${divCol}
         <td style="text-align:right">${gapText}</td>
         <td style="text-align:right;color:#07c160">${buy1Text}</td>
         <td style="text-align:right;color:#07c160">${buy2Text}</td>
@@ -127,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error(e);
       updateTimeEl.innerHTML = `❌ 加载数据失败，可能是该日期没有历史记录`;
       [tableRange, tableTrend, tableHold].forEach(t => {
-        t.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:40px;color:#e03c3c;">加载失败：${e.message}</td></tr>`;
+        t.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:40px;color:#e03c3c;">加载失败：${e.message}</td></tr>`;
       });
     }
   }

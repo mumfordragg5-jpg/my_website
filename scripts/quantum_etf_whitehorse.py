@@ -21,6 +21,7 @@ import sys
 import time
 import urllib.request
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 
@@ -227,21 +228,54 @@ class MootdxClient:
 # ════════════════════════════════════════════════════════════════════════════
 # 📡  数据源 Layer 3 — 新浪财经日K线
 # ════════════════════════════════════════════════════════════════════════════
+# 📡  数据源 Layer 3 — 腾讯财经日K线 (前复权) & 新浪K线
+# ════════════════════════════════════════════════════════════════════════════
+
+def get_tx_kline(code: str, count: int = 250) -> pd.DataFrame:
+    code_norm = normalize_code(code)
+    prefix = "sh" if code_norm.startswith(('6', '9', '5')) else "sz"
+    url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{code_norm},day,,,{count},qfq"
+    headers = {'User-Agent': _UA}
+    try:
+        r = requests.get(url, headers=headers, timeout=6)
+        if r.status_code == 200:
+            data = r.json().get('data', {}).get(f'{prefix}{code_norm}', {})
+            day_data = data.get('qfqday', data.get('day', []))
+            if day_data:
+                rows = []
+                for item in day_data:
+                    if len(item) >= 5:
+                        rows.append({
+                            'date': item[0],
+                            'open': item[1],
+                            'close': item[2],
+                            'high': item[3],
+                            'low': item[4],
+                            'volume': item[5] if len(item) > 5 else 0
+                        })
+                if rows:
+                    df = pd.DataFrame(rows)
+                    for col in ['open', 'close', 'high', 'low', 'volume']:
+                        df[col] = pd.to_numeric(df[col], errors='coerce')
+                    df['date'] = pd.to_datetime(df['date'])
+                    return df.sort_values('date').reset_index(drop=True)
+    except Exception as e:
+        logging.warning(f'腾讯K线获取失败({code_norm}): {e}')
+    return pd.DataFrame()
+
 
 def get_sina_kline(code: str) -> pd.DataFrame:
     code_norm = normalize_code(code)
     prefix = "sh" if code_norm.startswith(('6', '9', '5')) else "sz"
     symbol = prefix + code_norm
-    # 新浪财经日K线接口，scale=240代表日线，datalen代表获取天数，设置为250以包含MA120所需的数据窗口
     url = f"http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol={symbol}&scale=240&ma=no&datalen=250"
     try:
-        r = requests.get(url, timeout=10)
+        r = requests.get(url, timeout=6)
         r.raise_for_status()
         data = r.json()
         if not data or not isinstance(data, list):
             return pd.DataFrame()
         
-        # 新浪返回的数据格式：[{"day":"2023-11-20","open":"15.20","high":"15.50","low":"15.13","close":"15.25","volume":"32456"}, ...]
         rows = []
         for item in data:
             rows.append({
@@ -321,6 +355,78 @@ def get_realtime_quotes(stock_codes: List[str], mootdx: Optional[MootdxClient] =
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# 📡  数据源 Layer 4 — 东方财富分红数据中心
+# ════════════════════════════════════════════════════════════════════════════
+
+def get_dividend_data_batch(codes: List[str]) -> Dict[str, Dict[str, Any]]:
+    """
+    通过东方财富官方 F10 分红接口并发获取各股票近1年累计每股派现及分红明细。
+    """
+    results: Dict[str, Dict[str, Any]] = {}
+    headers = {
+        'User-Agent': _UA,
+        'Referer': 'https://emweb.securities.eastmoney.com/'
+    }
+
+    def _fetch_one(code: str) -> Tuple[str, float, str]:
+        c = normalize_code(code)
+        if c.startswith(('51', '15', '58', '16', '56')):
+            return c, 0.0, "ETF基金"
+        
+        url = (
+            f"https://datacenter-web.eastmoney.com/api/data/v1/get?"
+            f"reportName=RPT_SHAREBONUS_DET&columns=SECURITY_CODE,SECURITY_NAME_ABBR,"
+            f"PRETAX_BONUS_RMB,IMPL_PLAN_PROFILE,REPORT_DATE,ASSIGN_PROGRESS&"
+            f"filter=(SECURITY_CODE%3D%22{c}%22)&sortColumns=REPORT_DATE&sortTypes=-1&"
+            f"pageSize=4&pageNumber=1"
+        )
+        
+        for attempt in range(2):
+            try:
+                r = requests.get(url, headers=headers, timeout=5)
+                if r.status_code == 200:
+                    data = r.json().get('result', {}).get('data', [])
+                    total_dps = 0.0
+                    used = []
+                    for row in data:
+                        rmb = row.get('PRETAX_BONUS_RMB')
+                        plan = row.get('IMPL_PLAN_PROFILE', '')
+                        rep_date = str(row.get('REPORT_DATE', '')).split(' ')[0]
+                        per_share = 0.0
+                        if rmb is not None and float(rmb) > 0:
+                            per_share = float(rmb) / 10.0
+                        elif plan:
+                            m = re.search(r'10.*?派([0-9\.]+)元', plan)
+                            if m:
+                                per_share = float(m.group(1)) / 10.0
+                        
+                        if per_share > 0:
+                            total_dps += per_share
+                            used.append(f"{rep_date[:7]}:{per_share:.2f}元")
+                            # 取最近1年内（年报+中报/季报，最多2次）的分红
+                            if len(used) >= 2:
+                                break
+                    return c, round(total_dps, 3), " + ".join(used) if used else "暂无分红"
+            except Exception:
+                time.sleep(0.3)
+        return c, 0.0, "分红数据获取失败"
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(_fetch_one, code) for code in codes]
+        for f in as_completed(futures):
+            try:
+                c, dps, desc = f.result()
+                results[c] = {
+                    'dividend_per_share': dps,
+                    'dividend_desc': desc
+                }
+            except Exception as e:
+                logging.warning(f"分红计算异常: {e}")
+
+    return results
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # 📊  MA120 计算及历史切片
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -330,10 +436,12 @@ def get_ma120_and_price(code: str, target_date: str, is_today: bool, realtime_p:
     如果 target_date 是今天且有实时价，将实时价融入到最近一根K线中计算。
     """
     df = pd.DataFrame()
-    # 1. 尝试 mootdx K线
-    if mootdx:
+    # 1. 优先尝试 腾讯财经 K线 (快速且默认前复权)
+    df = get_tx_kline(code, count=MA_WINDOW + 130)
+    # 2. 尝试 mootdx K线
+    if df.empty and mootdx:
         df = mootdx.get_kline(code, count=MA_WINDOW + 80)
-    # 2. 尝试新浪 K线
+    # 3. 尝试新浪 K线
     if df.empty:
         df = get_sina_kline(code)
 
@@ -559,35 +667,46 @@ def run_whitehorse_analysis(target_date: str, no_publish: bool, dingtalk_token: 
         logging.warning("mootdx 不可用，将完全使用百度日 K 线和腾讯财经行情: %s", e)
         mootdx = None
 
-    # 2. 获取实时行情 (仅当计算今天时使用)
+    # 2. 获取实时行情 (仅当计算今天时使用) 与 分红数据
     all_stocks = {**RANGE_STOCKS, **TREND_STOCKS, **HOLD_STOCKS}
     quotes = {}
     if is_today:
         logging.info("抓取白马股实时行情...")
         quotes = get_realtime_quotes(list(all_stocks.keys()), mootdx)
+
+    logging.info("抓取白马股近1年分红数据...")
+    div_data = get_dividend_data_batch(list(all_stocks.keys()))
     
-    # 3. 计算所有股票的 MA120 和对应价格
-    logging.info("计算 %d 只白马股的 MA120 及当日收盘价...", len(all_stocks))
+    # 3. 计算所有股票的 MA120 和对应价格 (并发拉取K线并计算)
+    logging.info("并发计算 %d 只白马股的 MA120 及当日收盘价...", len(all_stocks))
     ma_cache = {}
     price_cache = {}
     change_pct_cache = {}
     
-    for code in all_stocks:
+    def _calc_ma(code: str):
         realtime_p = quotes.get(code, {}).get('price') if is_today else None
         ma, price, change_pct = get_ma120_and_price(code, target_date, is_today, realtime_p, mootdx)
-        if ma is not None and price is not None and change_pct is not None:
-            ma_cache[code] = ma
-            price_cache[code] = price
-            # 优先使用实时报价里计算出来的涨跌幅
-            if is_today and code in quotes:
-                q = quotes[code]
-                q_price = q.get('price', 0.0)
-                q_pre = q.get('pre_close', 0.0)
-                if q_pre > 0:
-                    change_pct = round((q_price - q_pre) / q_pre * 100, 2)
-            change_pct_cache[code] = change_pct
-        else:
-            logging.warning("%s 行情/均线数据获取失败", code)
+        if is_today and code in quotes:
+            q = quotes[code]
+            q_price = q.get('price', 0.0)
+            q_pre = q.get('pre_close', 0.0)
+            if q_pre > 0 and q_price > 0:
+                change_pct = round((q_price - q_pre) / q_pre * 100, 2)
+        return code, ma, price, change_pct
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(_calc_ma, code) for code in all_stocks]
+        for f in as_completed(futures):
+            try:
+                code, ma, price, change_pct = f.result()
+                if ma is not None and price is not None and change_pct is not None:
+                    ma_cache[code] = ma
+                    price_cache[code] = price
+                    change_pct_cache[code] = change_pct
+                else:
+                    logging.warning("%s 行情/均线数据获取失败", code)
+            except Exception as e:
+                logging.warning(f"MA120 计算异常: {e}")
 
     if mootdx:
         mootdx.close()
@@ -602,6 +721,12 @@ def run_whitehorse_analysis(target_date: str, no_publish: bool, dingtalk_token: 
         ma = ma_cache.get(code, 0.0)
         change_pct = change_pct_cache.get(code, 0.0)
         
+        # 股息率与每股分红计算
+        stock_div = div_data.get(code, {})
+        dps = stock_div.get('dividend_per_share', 0.0)
+        div_desc = stock_div.get('dividend_desc', '')
+        div_yield = round((dps / price) * 100, 2) if (price > 0 and dps > 0) else 0.0
+
         if price <= 0.0 or ma <= 0.0:
             signals["all_status"].append({
                 "code": code,
@@ -613,6 +738,9 @@ def run_whitehorse_analysis(target_date: str, no_publish: bool, dingtalk_token: 
                 "sell": 0.0,
                 "gap_pct": 0.0,
                 "change_pct": 0.0,
+                "dividend_per_share": dps,
+                "dividend_yield": 0.0,
+                "dividend_desc": div_desc,
                 "status": "数据失效",
                 "emoji": "❌",
                 "category": "横盘型" if code in RANGE_STOCKS else ("趋势型" if code in TREND_STOCKS else "持有型")
@@ -640,6 +768,9 @@ def run_whitehorse_analysis(target_date: str, no_publish: bool, dingtalk_token: 
             'buy2': buy2,
             'gap_pct': gap_pct,
             'change_pct': change_pct,
+            'dividend_per_share': dps,
+            'dividend_yield': div_yield,
+            'dividend_desc': div_desc,
             'type': '横盘型' if is_range else ('趋势型' if is_trend else '持有型')
         }
 
@@ -670,6 +801,9 @@ def run_whitehorse_analysis(target_date: str, no_publish: bool, dingtalk_token: 
             "sell": sell,
             "gap_pct": gap_pct,
             "change_pct": change_pct,
+            "dividend_per_share": dps,
+            "dividend_yield": div_yield,
+            "dividend_desc": div_desc,
             "status": status_str,
             "emoji": emoji,
             "category": '横盘型' if is_range else ('趋势型' if is_trend else '持有型')
