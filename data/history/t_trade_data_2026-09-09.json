@@ -1,0 +1,28 @@
+{
+  "update_time": "2026-09-09 12:28:38",
+  "target_date": "2026-09-09",
+  "stocks_count": 1,
+  "triggers_count": 1,
+  "items": [
+    {
+      "code": "601985",
+      "name": "中国核电",
+      "price": 9.03,
+      "change_pct": 1.12,
+      "high": 9.05,
+      "low": 8.9,
+      "open": 8.94,
+      "prev_close": 8.93,
+      "buy_price": 8.5,
+      "sell_price": 9.05,
+      "spread_pct": 6.47,
+      "gap_buy_pct": 6.24,
+      "gap_sell_pct": -0.22,
+      "grid_progress": 96.4,
+      "status": "临近卖点",
+      "emoji": "📈",
+      "trigger_type": "NEAR_SELL",
+      "note": "8.50低吸接回，9.05高抛做T"
+    }
+  ]
+}
