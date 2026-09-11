@@ -361,6 +361,7 @@ def get_realtime_quotes(stock_codes: List[str], mootdx: Optional[MootdxClient] =
 def get_dividend_data_batch(codes: List[str]) -> Dict[str, Dict[str, Any]]:
     """
     通过东方财富官方 F10 分红接口并发获取各股票近1年累计每股派现及分红明细。
+    严格按照财报所属期次（年报、中报、季报）进行近1年分红聚合，避免跨年度年报重复累加。
     """
     results: Dict[str, Dict[str, Any]] = {}
     headers = {
@@ -378,7 +379,7 @@ def get_dividend_data_batch(codes: List[str]) -> Dict[str, Dict[str, Any]]:
             f"reportName=RPT_SHAREBONUS_DET&columns=SECURITY_CODE,SECURITY_NAME_ABBR,"
             f"PRETAX_BONUS_RMB,IMPL_PLAN_PROFILE,REPORT_DATE,ASSIGN_PROGRESS&"
             f"filter=(SECURITY_CODE%3D%22{c}%22)&sortColumns=REPORT_DATE&sortTypes=-1&"
-            f"pageSize=4&pageNumber=1"
+            f"pageSize=8&pageNumber=1"
         )
         
         for attempt in range(2):
@@ -386,12 +387,16 @@ def get_dividend_data_batch(codes: List[str]) -> Dict[str, Dict[str, Any]]:
                 r = requests.get(url, headers=headers, timeout=5)
                 if r.status_code == 200:
                     data = r.json().get('result', {}).get('data', [])
-                    total_dps = 0.0
-                    used = []
+                    if not data:
+                        return c, 0.0, "暂无分红"
+                    
+                    periods = []
                     for row in data:
+                        rep_date = str(row.get('REPORT_DATE', '')).split(' ')[0]
+                        if not rep_date:
+                            continue
                         rmb = row.get('PRETAX_BONUS_RMB')
                         plan = row.get('IMPL_PLAN_PROFILE', '')
-                        rep_date = str(row.get('REPORT_DATE', '')).split(' ')[0]
                         per_share = 0.0
                         if rmb is not None and float(rmb) > 0:
                             per_share = float(rmb) / 10.0
@@ -401,12 +406,51 @@ def get_dividend_data_batch(codes: List[str]) -> Dict[str, Dict[str, Any]]:
                                 per_share = float(m.group(1)) / 10.0
                         
                         if per_share > 0:
-                            total_dps += per_share
-                            used.append(f"{rep_date[:7]}:{per_share:.2f}元")
-                            # 取最近1年内（年报+中报/季报，最多2次）的分红
-                            if len(used) >= 2:
-                                break
-                    return c, round(total_dps, 3), " + ".join(used) if used else "暂无分红"
+                            periods.append({
+                                'date': rep_date,
+                                'year': rep_date[:4],
+                                'period': rep_date[5:10], # '12-31', '06-30', '09-30'
+                                'dps': per_share,
+                            })
+
+                    if not periods:
+                        return c, 0.0, "暂无分红"
+
+                    # 找到最新一期年报 (YYYY-12-31)
+                    latest_annual = None
+                    for p in periods:
+                        if p['period'] == '12-31':
+                            latest_annual = p
+                            break
+
+                    total_dps = 0.0
+                    used_details = []
+
+                    if latest_annual:
+                        annual_year = latest_annual['year']
+                        # 检查是否有比该年报更新的中期/季度分红 (日期 > latest_annual['date'])
+                        newer_interims = [p for p in periods if p['date'] > latest_annual['date']]
+                        
+                        if newer_interims:
+                            # TTM 口径：最新中期分红 + 最新年报分红
+                            for ni in newer_interims:
+                                total_dps += ni['dps']
+                                used_details.append(f"{ni['date'][:7]}:{ni['dps']:.3f}元")
+                            
+                            total_dps += latest_annual['dps']
+                            used_details.append(f"{latest_annual['date'][:7]}:{latest_annual['dps']:.3f}元")
+                        else:
+                            # 完整会计年度口径：该年度年报 + 该年度内的所有中期/季度分红 (06-30, 09-30, 03-31)
+                            same_year_divs = [p for p in periods if p['year'] == annual_year]
+                            for sd in same_year_divs:
+                                total_dps += sd['dps']
+                                used_details.append(f"{sd['date'][:7]}:{sd['dps']:.3f}元")
+                    else:
+                        p = periods[0]
+                        total_dps = p['dps']
+                        used_details.append(f"{p['date'][:7]}:{p['dps']:.3f}元")
+
+                    return c, round(total_dps, 3), " + ".join(used_details) if used_details else "暂无分红"
             except Exception:
                 time.sleep(0.3)
         return c, 0.0, "分红数据获取失败"
