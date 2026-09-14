@@ -505,6 +505,14 @@ def build_article_page_html(title: str, md_content: str, tags: List[str],
 {cover_hero_html}            <div class="article-content">
 {body_html}
             </div>
+            <div class="article-follow-box" style="margin-top: 50px; padding: 28px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); text-align: center; box-shadow: var(--shadow-sm);">
+                <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">关注「科技马前卒」公众号</div>
+                <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 16px;">帮中国人读懂西方财经头条 · 洞察全球资本暗流</p>
+                <div style="width: 150px; height: 150px; margin: 0 auto 14px; padding: 6px; background: #ffffff; border-radius: 10px; border: 1px solid var(--border); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center;">
+                    <img src="../images/wechat_qrcode.jpg" alt="科技马前卒 公众号二维码" style="width: 100%; height: 100%; object-fit: contain; border-radius: 6px; display: block;">
+                </div>
+                <div style="display: inline-block; background: #07c160; color: #fff; font-size: 0.82rem; font-weight: 600; padding: 6px 18px; border-radius: 6px;">微信扫码或搜索关注</div>
+            </div>
         </div>
     </article>
     <footer class="site-footer">
