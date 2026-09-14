@@ -306,10 +306,10 @@ def generate_cover_image(topic: str, title: str, cover_prompt: str = "", filenam
 # ==================== 微信公众号素材上传 ====================
 
 def upload_wx_media(token: str, img_path: str) -> Optional[str]:
-    """上传临时图片素材到微信公众号，返回 media_id"""
+    """上传永久图片素材到微信公众号素材库，返回 media_id（草稿箱必须使用永久素材ID）"""
     if not img_path or not os.path.exists(img_path):
         return None
-    url = f"https://api.weixin.qq.com/cgi-bin/media/upload?access_token={token}&type=image"
+    url = f"https://api.weixin.qq.com/cgi-bin/material/add_material?access_token={token}&type=image"
     try:
         with open(img_path, "rb") as f:
             files = {"media": ("cover.jpg", f, "image/jpeg")}
@@ -317,7 +317,7 @@ def upload_wx_media(token: str, img_path: str) -> Optional[str]:
         res = r.json()
         media_id = res.get("media_id")
         if media_id:
-            log.info(f"微信素材上传成功, media_id: {media_id}")
+            log.info(f"微信永久素材上传成功, media_id: {media_id}")
             return media_id
         else:
             log.warning(f"微信素材上传失败: {res}")
@@ -596,7 +596,27 @@ def publish_wx_draft(title: str, html_content: str,
         headers={"Content-Type": "application/json; charset=utf-8"},
         timeout=30)
     r2.raise_for_status()
-    return r2.json()
+    res = r2.json()
+
+    if res.get("errcode") and res.get("errcode") != 0:
+        default_thumb = thumb_media_id or (WX_THUMB_MEDIA_ID2 if author == WX_AUTHOR2 else WX_THUMB_MEDIA_ID)
+        if actual_thumb_id != default_thumb and default_thumb:
+            log.warning(f"微信草稿添加报错(errcode={res.get('errcode')}: {res.get('errmsg')})，正在降级使用默认封面重试...")
+            payload["articles"][0]["thumb_media_id"] = default_thumb
+            r2_retry = requests.post(
+                f"https://api.weixin.qq.com/cgi-bin/draft/add?access_token={token}",
+                data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                headers={"Content-Type": "application/json; charset=utf-8"},
+                timeout=30)
+            r2_retry.raise_for_status()
+            res_retry = r2_retry.json()
+            if res_retry.get("errcode") and res_retry.get("errcode") != 0:
+                raise RuntimeError(f"微信草稿箱添加失败: errcode={res_retry.get('errcode')}, errmsg={res_retry.get('errmsg')}")
+            return res_retry
+        else:
+            raise RuntimeError(f"微信草稿箱添加失败: errcode={res.get('errcode')}, errmsg={res.get('errmsg')}")
+
+    return res
 
 # ==================== GitHub API ====================
 

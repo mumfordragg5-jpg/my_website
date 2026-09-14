@@ -134,6 +134,7 @@ jobs:
             PUB_WX2_FLAG="--no-wx2"
           fi
 
+          set -o pipefail
           python tools/gzh_news_writer_gemini.py gen \
             "${{ steps.topic.outputs.topic }}" \
             $PUB_WX_FLAG $PUB_WX2_FLAG $PUB_GH_FLAG \
