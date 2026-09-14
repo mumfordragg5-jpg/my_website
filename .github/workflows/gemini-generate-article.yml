@@ -108,7 +108,6 @@ jobs:
           https_proxy: socks5h://127.0.0.1:1080
           all_proxy: socks5h://127.0.0.1:1080
           no_proxy: "generativelanguage.googleapis.com,googleapis.com,github.com,api.github.com,127.0.0.1,localhost"
-          NO_PROXY: "generativelanguage.googleapis.com,googleapis.com,github.com,api.github.com,127.0.0.1,localhost"
           GEMINI_NO_PROXY: "true"
 
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
