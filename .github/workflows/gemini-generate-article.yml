@@ -61,7 +61,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install requests pysocks "httpx[socks]"
+        run: pip install requests pysocks "httpx[socks]" Pillow
 
       - name: Determine topic
         id: topic
@@ -150,11 +150,13 @@ jobs:
 
             const lines = log.split('\n');
             const titleLine = lines.find(l => l.includes('标题:'));
+            const coverLine = lines.find(l => l.includes('封面:'));
             const urlLine = lines.find(l => l.includes('网站:'));
             const wxLine = lines.find(l => l.includes('公众号:'));
 
-            let comment = '## ✅ 文章已生成 (Google Gemini)\n\n';
+            let comment = '## ✅ 文章已生成 (Google Gemini + AI 专属封面)\n\n';
             if (titleLine) comment += `**${titleLine.trim()}**\n\n`;
+            if (coverLine) comment += `🎨 专属 AI 封面已生成并自动绑定至草稿箱\n\n`;
             if (urlLine) comment += `🔗 ${urlLine.trim()}\n\n`;
             if (wxLine) comment += `📱 ${wxLine.trim()}\n\n`;
             comment += '<details><summary>运行日志</summary>\n\n```\n' + log.slice(-2000) + '\n```\n</details>';

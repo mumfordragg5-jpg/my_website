@@ -16,6 +16,7 @@ import argparse
 import base64
 import hashlib
 import hmac
+import io
 import json
 import logging
 import os
@@ -27,6 +28,12 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import requests
+
+try:
+    from PIL import Image
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 
 try:
     if hasattr(sys.stdout, "reconfigure"):
@@ -139,7 +146,8 @@ ARTICLE_PROMPT_TEMPLATE = """今天是{today}。请搜索「{topic}」最近7天
 
 八、输出格式
 - 第一行仅输出文章标题（不要带 Markdown #号或其他前缀）
-- 第二行空行
+- 第二行输出文章封面图的英文设计提示词，格式必须为：COVER_PROMPT: <简明英文视觉意象描述，用于AI生成16:9高级财经/科技质感插画，描述画面主体、色彩与光影，不要包含文字或水印词汇>
+- 第三行空行
 - 紧接着输出文章正文 Markdown 格式（可自然使用加粗 **重点**）
 """
 
@@ -205,11 +213,14 @@ def generate_article(topic: str) -> Dict[str, str]:
     log.info(f"Gemini 生成完成, 耗时 {time.time()-t0:.1f}s, 字数 {len(raw)}")
 
     lines = raw.split("\n")
-    title, content_lines = "", []
+    title, cover_prompt, content_lines = "", "", []
     for line in lines:
         s = line.strip()
         if not title and s:
             title = re.sub(r'^[#\s\*\-]+', '', s).strip()
+            continue
+        if not cover_prompt and s.upper().startswith("COVER_PROMPT:"):
+            cover_prompt = s.split(":", 1)[1].strip()
             continue
         content_lines.append(line)
     
@@ -227,7 +238,93 @@ def generate_article(topic: str) -> Dict[str, str]:
         cleaned_lines.append(line)
     
     final_content = "\n".join(cleaned_lines).strip()
-    return {"title": title, "content": final_content}
+    
+    if not cover_prompt:
+        cover_prompt = (
+            f"High-end editorial conceptual 3D illustration about global economics, finance, technology, {topic}, "
+            "sleek modern minimalist aesthetic, cinematic studio lighting, dramatic contrast, vibrant colors, "
+            "clean composition, highly detailed, 8k resolution"
+        )
+
+    return {"title": title, "content": final_content, "cover_prompt": cover_prompt}
+
+# ==================== AI 封面图生成与裁剪 ====================
+
+def generate_cover_image(topic: str, title: str, cover_prompt: str = "", filename: str = "cover_temp.jpg") -> Optional[str]:
+    """使用 Pollinations (Flux) 生成 2.35:1 无水印微信标准封面图"""
+    if not cover_prompt:
+        cover_prompt = (
+            f"High-end editorial conceptual 3D illustration about global economics, technology, {topic}, "
+            "sleek modern minimalist aesthetic, cinematic studio lighting, dramatic contrast, vibrant colors, "
+            "clean composition, highly detailed, 8k resolution"
+        )
+    # 强制约束无文本无水印
+    full_prompt = f"{cover_prompt.strip()}, no text, no watermark, no words, clean editorial, 16:9 aspect ratio"
+    encoded = urllib.parse.quote(full_prompt)
+    url = f"https://image.pollinations.ai/prompt/{encoded}?width=1280&height=720&nologo=true"
+
+    log.info(f"AI 封面图生成中: [{topic}] -> Prompt: {cover_prompt[:80]}...")
+    t0 = time.time()
+
+    img_bytes = None
+    for attempt in range(2):
+        try:
+            r = requests.get(url, timeout=50)
+            if r.status_code == 200 and len(r.content) > 2000 and "image" in r.headers.get("content-type", ""):
+                img_bytes = r.content
+                break
+            else:
+                log.warning(f"生图接口返回异常状态 (第{attempt+1}次): {r.status_code}")
+        except Exception as e:
+            log.warning(f"生图请求失败 (第{attempt+1}次): {e}")
+            time.sleep(2)
+
+    if not img_bytes:
+        log.warning("AI 封面图生成失败，后续将降级使用默认封面。")
+        return None
+
+    try:
+        if HAS_PIL:
+            img = Image.open(io.BytesIO(img_bytes))
+            w, h = img.size
+            # 裁剪底部 35px 水印并按微信头条大图 2.35:1 比例居中裁切
+            target_h = int(w / 2.35)
+            top = max(0, (h - 35 - target_h) // 2)
+            cropped = img.crop((0, top, w, top + target_h))
+            cropped.save(filename, "JPEG", quality=92)
+        else:
+            with open(filename, "wb") as f:
+                f.write(img_bytes)
+        log.info(f"AI 封面图就绪: {filename} (耗时 {time.time()-t0:.1f}s)")
+        return filename
+    except Exception as e:
+        log.warning(f"封面图裁剪处理失败: {e}")
+        with open(filename, "wb") as f:
+            f.write(img_bytes)
+        return filename
+
+# ==================== 微信公众号素材上传 ====================
+
+def upload_wx_media(token: str, img_path: str) -> Optional[str]:
+    """上传临时图片素材到微信公众号，返回 media_id"""
+    if not img_path or not os.path.exists(img_path):
+        return None
+    url = f"https://api.weixin.qq.com/cgi-bin/media/upload?access_token={token}&type=image"
+    try:
+        with open(img_path, "rb") as f:
+            files = {"media": ("cover.jpg", f, "image/jpeg")}
+            r = requests.post(url, files=files, timeout=30)
+        res = r.json()
+        media_id = res.get("media_id")
+        if media_id:
+            log.info(f"微信素材上传成功, media_id: {media_id}")
+            return media_id
+        else:
+            log.warning(f"微信素材上传失败: {res}")
+            return None
+    except Exception as e:
+        log.warning(f"微信素材上传异常: {e}")
+        return None
 
 # ==================== 标签分类 ====================
 
@@ -351,13 +448,19 @@ def md_to_website_body(md: str) -> str:
     return "\n".join(parts)
 
 def build_article_page_html(title: str, md_content: str, tags: List[str],
-                            source: str, date_str: str) -> str:
+                            source: str, date_str: str, cover_web_url: Optional[str] = None) -> str:
     body_html = md_to_website_body(md_content)
     reading_min = max(5, len(md_content) // 400)
     tag_spans = "\n".join(
         f'                    <span class="card-tag">{TAG_EMOJI.get(t, "🔥")} {t}</span>'
         for t in tags
     )
+    cover_hero_html = ""
+    if cover_web_url:
+        cover_hero_html = f'''            <div class="article-hero-cover" style="margin: 0 0 30px; border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-md);">
+                <img src="../{cover_web_url}" alt="{title}" style="width: 100%; height: auto; display: block;">
+            </div>\n'''
+
     return f'''<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -399,7 +502,7 @@ def build_article_page_html(title: str, md_content: str, tags: List[str],
             </div>
         </header>
         <div class="article-body">
-            <div class="article-content">
+{cover_hero_html}            <div class="article-content">
 {body_html}
             </div>
         </div>
@@ -419,14 +522,21 @@ def build_article_page_html(title: str, md_content: str, tags: List[str],
 </html>'''
 
 def build_index_card_html(slug: str, title: str, excerpt: str, tags: List[str],
-                          source: str, date_str: str) -> str:
+                          source: str, date_str: str, cover_web_url: Optional[str] = None) -> str:
     tag_spans = "\n".join(
         f'                        <span class="card-tag{" tag-secondary" if i > 0 else ""}">{TAG_EMOJI.get(t, "🔥")} {t}</span>'
         for i, t in enumerate(tags)
     )
     tags_str = " ".join(tags)
+    cover_html = ""
+    if cover_web_url:
+        cover_html = f'''
+                <div class="card-cover">
+                    <a href="articles/{slug}.html"><img src="{cover_web_url}" alt="{title}" loading="lazy"></a>
+                </div>'''
+
     return f'''
-            <div class="article-card fade-in" data-tags="{tags_str}" data-title="{title}" data-search="{title} {tags_str} {source}">
+            <div class="article-card fade-in" data-tags="{tags_str}" data-title="{title}" data-search="{title} {tags_str} {source}">{cover_html}
                 <div class="card-body">
                     <div class="card-tags-row">
 {tag_spans}
@@ -449,10 +559,10 @@ def build_index_card_html(slug: str, title: str, excerpt: str, tags: List[str],
 
 def publish_wx_draft(title: str, html_content: str,
                      appid: str = None, appsecret: str = None,
-                     thumb_media_id: str = None, author: str = None) -> Dict[str, Any]:
+                     thumb_media_id: str = None, author: str = None,
+                     cover_img_path: str = None) -> Dict[str, Any]:
     appid = appid or WX_APPID
     appsecret = appsecret or WX_APPSECRET
-    thumb_media_id = thumb_media_id or WX_THUMB_MEDIA_ID
     author = author or WX_AUTHOR
     r = requests.get("https://api.weixin.qq.com/cgi-bin/token", params={
         "grant_type": "client_credential", "appid": appid, "secret": appsecret,
@@ -462,9 +572,21 @@ def publish_wx_draft(title: str, html_content: str,
     if not token:
         raise RuntimeError(f"获取 access_token 失败: {r.json()}")
 
+    # 优先自动上传专属 AI 封面图到微信公众号素材库
+    actual_thumb_id = None
+    if cover_img_path and os.path.exists(cover_img_path):
+        log.info(f"正在自动上传专属 AI 封面到微信公众号 ({author})...")
+        actual_thumb_id = upload_wx_media(token, cover_img_path)
+
+    if not actual_thumb_id:
+        actual_thumb_id = thumb_media_id or WX_THUMB_MEDIA_ID
+        log.info(f"使用默认封面 thumb_media_id: {actual_thumb_id}")
+    else:
+        log.info(f"成功绑定专属 AI 封面 thumb_media_id: {actual_thumb_id}")
+
     payload = {"articles": [{
         "title": title, "content": html_content, "content_source_url": "",
-        "thumb_media_id": thumb_media_id, "author": author,
+        "thumb_media_id": actual_thumb_id, "author": author,
         "digest": title[:60], "show_cover_pic": 0,
         "need_open_comment": 1, "only_fans_can_comment": 0,
     }]}
@@ -501,10 +623,40 @@ def _gh_put_file(path: str, content: str, message: str, sha: Optional[str] = Non
     r.raise_for_status()
     return r.json()
 
+def _gh_put_binary_file(path: str, data: bytes, message: str, sha: Optional[str] = None) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "message": message,
+        "content": base64.b64encode(data).decode("ascii"),
+        "branch": GITHUB_BRANCH,
+    }
+    if sha:
+        payload["sha"] = sha
+    r = requests.put(
+        f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}",
+        headers=_gh_headers(), data=json.dumps(payload), timeout=30)
+    r.raise_for_status()
+    return r.json()
+
 def push_to_github(slug: str, article_html: str, article_md: str,
                    title: str, excerpt: str, tags: List[str],
-                   source: str, date_str: str) -> Dict[str, str]:
+                   source: str, date_str: str,
+                   cover_img_path: Optional[str] = None) -> Dict[str, str]:
     results = {}
+    cover_web_url = None
+
+    if cover_img_path and os.path.exists(cover_img_path):
+        cover_gh_path = f"assets/covers/{slug}.jpg"
+        try:
+            with open(cover_img_path, "rb") as f:
+                img_data = f.read()
+            existing_cover = _gh_get_file(cover_gh_path)
+            _gh_put_binary_file(cover_gh_path, img_data, f"Add cover: {title}",
+                                existing_cover["sha"] if existing_cover else None)
+            cover_web_url = f"assets/covers/{slug}.jpg"
+            results["cover_image"] = cover_gh_path
+            log.info(f"GitHub: 封面图已上传 -> {cover_gh_path}")
+        except Exception as e:
+            log.warning(f"GitHub 封面图上传失败: {e}")
 
     html_path = f"articles/{slug}.html"
     existing = _gh_get_file(html_path)
@@ -523,7 +675,7 @@ def push_to_github(slug: str, article_html: str, article_md: str,
     index_info = _gh_get_file("index.html")
     if index_info:
         index_content = base64.b64decode(index_info["content"]).decode("utf-8")
-        new_card = build_index_card_html(slug, title, excerpt, tags, source, date_str)
+        new_card = build_index_card_html(slug, title, excerpt, tags, source, date_str, cover_web_url=cover_web_url)
 
         marker = "<!-- ARTICLE_INSERT_MARKER -->"
         if marker in index_content:
@@ -580,7 +732,7 @@ def generate_slug(title: str) -> str:
 
 def run_pipeline(topic: str, source_hint: str = "综合",
                  publish_wx: bool = True, publish_wx2: bool = False,
-                 publish_gh: bool = True) -> Dict[str, Any]:
+                 publish_gh: bool = True, generate_cover: bool = True) -> Dict[str, Any]:
     log.info(f"{'='*50}")
     log.info(f"话题: {topic} (使用 Google Gemini API)")
     log.info(f"{'='*50}")
@@ -609,10 +761,19 @@ def run_pipeline(topic: str, source_hint: str = "综合",
         "source": source_hint, "date": date_short,
     })
 
+    # AI 封面图生成
+    cover_img_path = None
+    if generate_cover:
+        cover_prompt = article.get("cover_prompt", "")
+        cover_filename = f"cover_{slug}.jpg"
+        cover_img_path = generate_cover_image(topic, title, cover_prompt, cover_filename)
+        if cover_img_path:
+            result["cover_image"] = cover_img_path
+
     if publish_wx:
         try:
             wx_html = md_to_wx_html(content_md)
-            wx_result = publish_wx_draft(title, wx_html)
+            wx_result = publish_wx_draft(title, wx_html, cover_img_path=cover_img_path)
             result["wx_result"] = wx_result
             log.info(f"微信公众号: media_id={wx_result.get('media_id', 'N/A')}")
         except Exception as e:
@@ -624,7 +785,8 @@ def run_pipeline(topic: str, source_hint: str = "综合",
             wx_html = md_to_wx_html(content_md)
             wx_result2 = publish_wx_draft(title, wx_html,
                 appid=WX_APPID2, appsecret=WX_APPSECRET2,
-                thumb_media_id=WX_THUMB_MEDIA_ID2, author=WX_AUTHOR2)
+                thumb_media_id=WX_THUMB_MEDIA_ID2, author=WX_AUTHOR2,
+                cover_img_path=cover_img_path)
             result["wx_result2"] = wx_result2
             log.info(f"公众号2: media_id={wx_result2.get('media_id', 'N/A')}")
         except Exception as e:
@@ -633,8 +795,14 @@ def run_pipeline(topic: str, source_hint: str = "综合",
 
     if publish_gh and GITHUB_TOKEN:
         try:
-            page_html = build_article_page_html(title, content_md, tags, source_hint, date_str)
-            gh_result = push_to_github(slug, page_html, content_md, title, excerpt, tags, source_hint, date_short)
+            page_html = build_article_page_html(
+                title, content_md, tags, source_hint, date_str,
+                cover_web_url=f"assets/covers/{slug}.jpg" if cover_img_path else None
+            )
+            gh_result = push_to_github(
+                slug, page_html, content_md, title, excerpt, tags, source_hint, date_short,
+                cover_img_path=cover_img_path
+            )
             result["gh_result"] = gh_result
             result["gh_url"] = f"https://mumfordragg5-jpg.github.io/my_website/articles/{slug}.html"
         except Exception as e:
@@ -663,6 +831,7 @@ if __name__ == "__main__":
     gen_p.add_argument("--no-wx", action="store_true", help="不发布到公众号")
     gen_p.add_argument("--no-wx2", action="store_true", help="不发布到公众号2（科技马前卒）")
     gen_p.add_argument("--no-gh", action="store_true", help="不发布到 GitHub")
+    gen_p.add_argument("--no-cover", action="store_true", help="不生成 AI 封面图")
     gen_p.add_argument("--save", type=str, default="", help="保存 Markdown 到文件")
 
     args = parser.parse_args()
@@ -678,8 +847,11 @@ if __name__ == "__main__":
             publish_wx=not args.no_wx,
             publish_wx2=not args.no_wx2,
             publish_gh=not args.no_gh,
+            generate_cover=not args.no_cover,
         )
         print(f"\n标题: {result['title']}")
+        if result.get("cover_image"):
+            print(f"封面: {result['cover_image']}")
         if result.get("gh_url"):
             print(f"网站: {result['gh_url']}")
         if result.get("wx_result", {}).get("media_id"):
