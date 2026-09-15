@@ -142,6 +142,22 @@ function renderPageData() {
   renderRankingsTable();
 }
 
+function getEastMoneyUrl(code) {
+  if (!code) return '#';
+  const c = String(code).trim().toUpperCase();
+  if (/^[A-Z\.]+$/.test(c)) {
+    return `https://quote.eastmoney.com/us/${c}.html`;
+  }
+  const clean = c.toLowerCase().replace(/^(sh|sz|bj)/, '');
+  let prefix = 'sz';
+  if (clean.startsWith('6') || clean.startsWith('5') || clean.startsWith('9') || clean.startsWith('7') || clean.startsWith('11')) {
+    prefix = 'sh';
+  } else if (clean.startsWith('8') || clean.startsWith('4') || clean.startsWith('92')) {
+    prefix = 'bj';
+  }
+  return `https://quote.eastmoney.com/${prefix}${clean}.html`;
+}
+
 // 渲染决策卡片
 function renderDecisionCard() {
   const card = document.getElementById('decisionCard');
@@ -173,7 +189,8 @@ function renderDecisionCard() {
   let targetPriceHtml = '--';
 
   if (target.code) {
-    targetNameHtml = `${target.name} <span class="target-asset-code">${target.code}</span>`;
+    const etfUrl = getEastMoneyUrl(target.code);
+    targetNameHtml = `<a href="${etfUrl}" target="_blank" rel="noopener noreferrer" class="stock-link" title="点击查看东方财富行情" style="color:inherit;">${target.name}</a> <span class="target-asset-code">${target.code}</span>`;
     targetPriceHtml = target.price ? `${target.price.toFixed(3)} 元` : '--';
   }
 
@@ -272,10 +289,16 @@ function renderRankingsTable() {
     const chg1Text = chg1 !== null ? `${chg1 > 0 ? '+' : ''}${chg1.toFixed(2)}%` : '--';
     const chg5Text = chg5 !== null ? `${chg5 > 0 ? '+' : ''}${chg5.toFixed(2)}%` : '--';
 
+    const etfUrl = getEastMoneyUrl(item.code);
+
     tr.innerHTML = `
       <td style="font-weight: 700;">${index + 1}</td>
       <td style="font-family: monospace;">${item.code}</td>
-      <td>${item.name}${badgeHtml}</td>
+      <td>
+        <a href="${etfUrl}" target="_blank" rel="noopener noreferrer" class="stock-link" title="点击查看东方财富行情">
+          ${item.name}
+        </a>${badgeHtml}
+      </td>
       <td style="text-align: right; font-weight: 600;">${item.price.toFixed(3)}</td>
       <td style="text-align: right; color: ${colorChg1};">${chg1Text}</td>
       <td style="text-align: right; color: ${colorChg5};">${chg5Text}</td>

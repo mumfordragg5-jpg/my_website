@@ -12,6 +12,22 @@ document.addEventListener('DOMContentLoaded', () => {
     tableUsStocks.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted)">获取中...</td></tr>';
   }
 
+  function getEastMoneyUrl(code) {
+    if (!code) return '#';
+    const c = String(code).trim().toUpperCase();
+    if (/^[A-Z\.]+$/.test(c)) {
+      return `https://quote.eastmoney.com/us/${c}.html`;
+    }
+    const clean = c.toLowerCase().replace(/^(sh|sz|bj)/, '');
+    let prefix = 'sz';
+    if (clean.startsWith('6') || clean.startsWith('5') || clean.startsWith('9') || clean.startsWith('7') || clean.startsWith('11')) {
+      prefix = 'sh';
+    } else if (clean.startsWith('8') || clean.startsWith('4') || clean.startsWith('92')) {
+      prefix = 'bj';
+    }
+    return `https://quote.eastmoney.com/${prefix}${clean}.html`;
+  }
+
   function renderRow(item) {
     const chg = item.change_pct != null ? Number(item.change_pct) : null;
     const chgColor = chg != null ? (chg > 0 ? '#07c160' : (chg < 0 ? '#e03c3c' : 'inherit')) : 'inherit';
@@ -28,11 +44,16 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const statusText = item.is_buy ? '触发买入' : '正常';
     const statusClass = item.is_buy ? 'status-buy' : 'status-normal';
+    const stockUrl = getEastMoneyUrl(item.code);
     
     return `
       <tr>
         <td><span style="color:var(--text-muted);font-size:0.8rem">${item.code}</span></td>
-        <td style="font-weight:600">${item.name}</td>
+        <td style="font-weight:600">
+          <a href="${stockUrl}" target="_blank" rel="noopener noreferrer" class="stock-link" title="点击查看东方财富行情">
+            ${item.name}
+          </a>
+        </td>
         <td style="text-align:right;font-weight:700">${price != null ? price.toFixed(2) : '--'}</td>
         <td style="text-align:right;color:${chgColor}">${chgText}</td>
         <td style="text-align:right">${high52 != null ? high52.toFixed(2) : '--'}</td>

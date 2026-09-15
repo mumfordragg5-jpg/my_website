@@ -874,3 +874,17 @@ img { max-width: 100%; height: auto; }
   .card-title { font-size: 1.1rem; }
   .hero-stats { gap: 12px; padding: 12px 16px; }
 }
+
+/* ============ STOCK LINK ============ */
+.stock-link {
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color var(--transition), text-decoration var(--transition);
+  cursor: pointer;
+}
+.stock-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+

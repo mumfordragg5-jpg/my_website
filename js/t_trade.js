@@ -17,6 +17,22 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'status-normal';
   }
 
+  function getEastMoneyUrl(code) {
+    if (!code) return '#';
+    const c = String(code).trim().toUpperCase();
+    if (/^[A-Z\.]+$/.test(c)) {
+      return `https://quote.eastmoney.com/us/${c}.html`;
+    }
+    const clean = c.toLowerCase().replace(/^(sh|sz|bj)/, '');
+    let prefix = 'sz';
+    if (clean.startsWith('6') || clean.startsWith('5') || clean.startsWith('9') || clean.startsWith('7') || clean.startsWith('11')) {
+      prefix = 'sh';
+    } else if (clean.startsWith('8') || clean.startsWith('4') || clean.startsWith('92')) {
+      prefix = 'bj';
+    }
+    return `https://quote.eastmoney.com/${prefix}${clean}.html`;
+  }
+
   function renderList(containerId, countId, list, type) {
     const container = document.getElementById(containerId);
     const count = document.getElementById(countId);
@@ -47,10 +63,14 @@ document.addEventListener('DOMContentLoaded', () => {
         gapColor = gap >= 0 ? '#e03c3c' : '#ff9a76';
       }
 
+      const stockUrl = getEastMoneyUrl(item.code);
+
       return `
         <li class="wh-signal-item">
           <div class="wh-stock-info">
-            <span class="wh-stock-name">${item.emoji ? item.emoji + ' ' : ''}${item.name || item.code}</span>
+            <a href="${stockUrl}" target="_blank" rel="noopener noreferrer" class="stock-link" title="点击查看东方财富行情">
+              <span class="wh-stock-name">${item.emoji ? item.emoji + ' ' : ''}${item.name || item.code}</span>
+            </a>
             <span class="wh-stock-code">${item.code}</span>
           </div>
           <div>
@@ -110,11 +130,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const statusText = item.status || '区间震荡';
     const noteText = item.note || '--';
+    const stockUrl = getEastMoneyUrl(item.code);
 
     return `
       <tr>
         <td><span style="color:var(--text-muted);font-family:monospace;font-size:0.85rem">${item.code}</span></td>
-        <td style="font-weight:700">${item.emoji ? item.emoji + ' ' : ''}${item.name || item.code}</td>
+        <td style="font-weight:700">
+          <a href="${stockUrl}" target="_blank" rel="noopener noreferrer" class="stock-link" title="点击查看东方财富行情">
+            ${item.emoji ? item.emoji + ' ' : ''}${item.name || item.code}
+          </a>
+        </td>
         <td style="text-align:right;font-weight:800;font-size:1.05rem">${priceText}</td>
         <td style="text-align:right;font-weight:600;color:${chgColor}">${chgText}</td>
         <td style="text-align:right;color:var(--text-muted);font-size:0.85rem">${rangeText}</td>
