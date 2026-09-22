@@ -16,6 +16,25 @@ except ImportError:
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
+# 美股监控标的配置表
+STOCKS_CONFIG = [
+    # 宽基与高股息 ETF
+    {"code": "QQQ", "name": "纳斯达克100 ETF", "category": "broad", "cat_name": "宽基与高股息 ETF", "dd_th": 0.10, "ma_th": 0.05},
+    {"code": "SPY", "name": "标普500 ETF", "category": "broad", "cat_name": "宽基与高股息 ETF", "dd_th": 0.10, "ma_th": 0.05},
+    {"code": "SCHD", "name": "施瓦布高股息 ETF", "category": "broad", "cat_name": "宽基与高股息 ETF", "dd_th": 0.10, "ma_th": 0.05},
+    
+    # 科技行业与杠杆 ETF
+    {"code": "SOXX", "name": "费城半导体 ETF", "category": "sector", "cat_name": "科技行业与杠杆 ETF", "dd_th": 0.10, "ma_th": 0.05},
+    {"code": "SMH", "name": "泛半导体 ETF", "category": "sector", "cat_name": "科技行业与杠杆 ETF", "dd_th": 0.10, "ma_th": 0.05},
+    {"code": "VGT", "name": "信息技术 ETF", "category": "sector", "cat_name": "科技行业与杠杆 ETF", "dd_th": 0.10, "ma_th": 0.05},
+    {"code": "TQQQ", "name": "纳指3倍做多 ETF", "category": "sector", "cat_name": "科技行业与杠杆 ETF", "dd_th": 0.20, "ma_th": 0.10},
+    
+    # 核心科技巨头
+    {"code": "AAPL", "name": "苹果公司", "category": "tech", "cat_name": "核心科技巨头", "dd_th": 0.10, "ma_th": 0.05},
+    {"code": "MSFT", "name": "微软", "category": "tech", "cat_name": "核心科技巨头", "dd_th": 0.10, "ma_th": 0.05},
+    {"code": "GOOG", "name": "谷歌", "category": "tech", "cat_name": "核心科技巨头", "dd_th": 0.10, "ma_th": 0.05},
+]
+
 def find_website_dir() -> Path:
     cwd = Path.cwd()
     if (cwd / "index.html").exists() and (cwd / "data").exists():
@@ -86,68 +105,110 @@ def run_us_stock_analysis(target_date: str, dingtalk_token: str) -> None:
 
     website_dir = find_website_dir()
     
-    # 获取数据
-    logging.info("获取 QQQ, SPY, ^VIX 数据...")
-    qqq_data = get_us_data("QQQ")
-    spy_data = get_us_data("SPY")
+    # 1. 获取 VIX 波动率恐慌指数
+    logging.info("获取 ^VIX 恐慌指数数据...")
     vix_data = get_us_data("^VIX")
-    
-    if not qqq_data or not spy_data or not vix_data:
-        logging.error("未能获取完整的美股数据，退出。")
-        return
-        
-    stocks = {
-        "QQQ": {"name": "纳斯达克100 ETF", "data": qqq_data},
-        "SPY": {"name": "标普500 ETF", "data": spy_data},
-    }
-    
+    vix_price = float(vix_data["price"]) if vix_data else 0.0
+    vix_chg = float(vix_data["change_pct"]) if vix_data else 0.0
+    vix_is_panic = bool(vix_price >= 35.0)
+
+    # 2. 依次获取各监控标的数据
     signals = []
-    
-    for code, info in stocks.items():
-        d = info["data"]
-        name = info["name"]
+    for cfg in STOCKS_CONFIG:
+        code = cfg["code"]
+        name = cfg["name"]
+        cat = cfg["category"]
+        cat_name = cfg["cat_name"]
+        dd_th = cfg.get("dd_th", 0.10)
+        ma_th = cfg.get("ma_th", 0.05)
         
+        logging.info("正在获取 %s (%s)...", code, name)
+        d = get_us_data(code)
+        if not d:
+            logging.warning("标的 %s 数据获取失败，跳过", code)
+            continue
+            
+        price = float(d["price"])
+        change_pct = float(d["change_pct"])
+        high_52w = float(d["high_52w"])
+        ma120 = float(d["ma120"]) if pd.notna(d["ma120"]) else None
+        
+        drawdown_pct = ((price - high_52w) / high_52w * 100) if high_52w > 0 else 0.0
+        ma120_dev = ((price - ma120) / ma120 * 100) if (ma120 and ma120 > 0) else None
+        
+        # 买点参考计算
+        buy_point_high = round(high_52w * (1 - dd_th), 2)
+        buy_point_ma = round(ma120 * (1 - ma_th), 2) if ma120 else None
+        
+        target_candidates = [bp for bp in [buy_point_high, buy_point_ma] if bp is not None]
+        target_buy_price = max(target_candidates) if target_candidates else buy_point_high
+        
+        gap_pct = round((price - target_buy_price) / target_buy_price * 100, 2) if target_buy_price > 0 else 0.0
+        
+        # 触发买入判断
         buy_reasons = []
-        if d["price"] <= d["high_52w"] * 0.9:
-            buy_reasons.append("高点回撤≥10%")
-        if d["ma120"] and d["price"] <= d["ma120"] * 0.95:
-            buy_reasons.append("跌破MA120超5%")
+        if price <= buy_point_high:
+            buy_reasons.append(f"高点回撤≥{int(dd_th*100)}% (当前 {drawdown_pct:.1f}%)")
+        if buy_point_ma and price <= buy_point_ma:
+            buy_reasons.append(f"跌破MA120超{int(ma_th*100)}% (当前 {ma120_dev:.1f}%)")
             
         is_buy = len(buy_reasons) > 0
+        is_near = (not is_buy) and (0 < gap_pct <= 3.0)
         
+        if is_buy:
+            status = "触发买入"
+        elif is_near:
+            status = "即将到位"
+        else:
+            status = "正常"
+
         signals.append({
             "code": code,
             "name": name,
-            "price": float(d["price"]),
-            "change_pct": float(d["change_pct"]),
-            "high_52w": float(d["high_52w"]),
-            "ma120": float(d["ma120"]) if pd.notna(d["ma120"]) else None,
-            "is_buy": bool(is_buy),
+            "category": cat,
+            "cat_name": cat_name,
+            "price": round(price, 2),
+            "change_pct": round(change_pct, 2),
+            "high_52w": round(high_52w, 2),
+            "drawdown_pct": round(drawdown_pct, 2),
+            "ma120": round(ma120, 2) if ma120 else None,
+            "ma120_dev": round(ma120_dev, 2) if ma120_dev else None,
+            "buy_point_high": buy_point_high,
+            "buy_point_ma": buy_point_ma,
+            "target_buy_price": target_buy_price,
+            "gap_pct": gap_pct,
+            "is_buy": is_buy,
+            "is_near": is_near,
+            "status": status,
             "buy_reasons": buy_reasons
         })
-        
-    # VIX 单独作为恐慌情绪判断
-    vix_is_panic = bool(vix_data["price"] >= 35)
-    
-    # 构造前端所需 JSON
+
+    # 3. 构造前端所需 JSON
+    buy_list = [s for s in signals if s["is_buy"]]
+    near_list = [s for s in signals if s["is_near"]]
+
     result_data = {
         "update_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "vix": {
-            "price": float(vix_data["price"]),
-            "change_pct": float(vix_data["change_pct"]),
+            "price": round(vix_price, 2),
+            "change_pct": round(vix_chg, 2),
             "is_panic": vix_is_panic
+        },
+        "signals": {
+            "buy": buy_list,
+            "near": near_list,
         },
         "stocks": signals
     }
     
-    # 保存数据
+    # 4. 保存数据
     data_dir = website_dir / "data"
     data_dir.mkdir(exist_ok=True)
     json_file = data_dir / "us_stock_data.json"
     
     with open(json_file, "w", encoding="utf-8") as f:
         json.dump(result_data, f, ensure_ascii=False, indent=2)
-    logging.info("成功保存美股数据至：%s", json_file)
+    logging.info("成功保存美股数据至：%s (共 %d 只标的)", json_file, len(signals))
     
     # 记录到 history
     history_dir = data_dir / "history"
@@ -155,25 +216,28 @@ def run_us_stock_analysis(target_date: str, dingtalk_token: str) -> None:
     history_file = history_dir / f"us_stock_data_{target_date}.json"
     with open(history_file, "w", encoding="utf-8") as f:
         json.dump(result_data, f, ensure_ascii=False, indent=2)
+    logging.info("成功归档美股历史数据至：%s", history_file)
     
-    # 推送钉钉
-    any_buy = any(s["is_buy"] for s in signals)
-    
-    if any_buy or vix_is_panic:
+    # 5. 推送钉钉消息
+    if buy_list or vix_is_panic:
         title = "🌎 触发美股抄底信号"
         content = "## 🌎 美股监控：触发抄底信号\n\n"
         
         if vix_is_panic:
             content += f"### 🚨 极度恐慌警告\n"
-            content += f"- **VIX 恐慌指数**: 当前 **{vix_data['price']:.2f}** (≥35)！市场处于极度恐慌状态，通常是美股的阶段性底部特征。\n\n"
+            content += f"- **VIX 恐慌指数**: 当前 **{vix_price:.2f}** (≥35)！市场处于极度恐慌状态，通常是美股的阶段性底部特征。\n\n"
             
-        buy_stocks = [s for s in signals if s["is_buy"]]
-        if buy_stocks:
-            content += "### 💰 触底标的\n"
-            for s in buy_stocks:
+        if buy_list:
+            content += "### 💰 触底买入标的\n"
+            for s in buy_list:
                 reasons = " + ".join(s["buy_reasons"])
-                content += f"- **{s['name']} ({s['code']})**: 现价 {s['price']:.2f} | 52周高点 {s['high_52w']:.2f} | MA120 {s['ma120']:.2f}\n"
+                content += f"- **{s['name']} ({s['code']})**: 现价 ${s['price']:.2f} | 52周高点 ${s['high_52w']:.2f} | MA120 ${s['ma120'] if s['ma120'] else 0:.2f}\n"
                 content += f"  > 触发原因：{reasons}\n"
+                
+        if near_list:
+            content += "\n### 📉 即将到位标的 (回调蓄势)\n"
+            for s in near_list:
+                content += f"- **{s['name']} ({s['code']})**: 现价 ${s['price']:.2f} | 目标买点 ${s['target_buy_price']:.2f} (差距 +{s['gap_pct']:.2f}%)\n"
         
         content += "\n---\n*本通知由 Quantum US Stock 策略自动生成*"
         send_dingtalk_msg(dingtalk_token, title, content)
