@@ -18,7 +18,9 @@
 import io
 import json
 import os
+import http.client
 import re
+import socket
 import ssl
 import struct
 import time
@@ -59,6 +61,66 @@ def use_proxy():
     return (os.environ.get(PROXY_ENV) or "").strip()
 
 
+# ★ 为什么不用 urllib 自带的 ProxyHandler 走 SOCKS：
+#   urllib **根本不认 socks5 协议**。给它 ProxyHandler({"https": "socks5h://..."})，
+#   它只是把这个串当成一个普通 HTTP 代理地址，于是用 HTTP 协议去敲一个 SOCKS 端口，
+#   服务端自然立刻关连接 —— 报错就是那句极具误导性的
+#   "Remote end closed connection without response"。
+#   （requests 能直接写 socks5h:// 是因为它内置了 socks 支持，urllib 没有。）
+#
+#   所以这里自己实现一个 HTTPS-over-SOCKS5 的 opener：
+#   先跟隧道做 SOCKS5 握手并 CONNECT 到目标 443，再在这条 socket 上做 TLS。
+#   零第三方依赖，SSL 上下文也完全可控。
+
+
+class _Socks5HTTPSConnection(http.client.HTTPSConnection):
+    """把"连到目标 443"这一步改成"经 SOCKS5 隧道连到目标 443"。"""
+
+    def __init__(self, host, port=None, proxy=("127.0.0.1", 1080),
+                 context=None, **kw):
+        http.client.HTTPSConnection.__init__(self, host, port, context=context, **kw)
+        self._proxy = proxy
+
+    def connect(self):
+        raw = socket.create_connection(self._proxy, timeout=self.timeout)
+        raw.settimeout(self.timeout)
+        try:
+            raw.sendall(b"\x05\x01\x00")            # VER=5, NMETHODS=1, NO-AUTH
+            if raw.recv(2) != b"\x05\x00":
+                raise IOError("SOCKS5 握手被拒（隧道可能要求认证）")
+            host = self.host.encode("idna") if isinstance(self.host, str) else self.host
+            raw.sendall(b"\x05\x01\x00\x03" + bytes([len(host)]) + host
+                        + struct.pack(">H", self.port))   # 域名由服务端解析
+            head = raw.recv(4)
+            if len(head) < 2 or head[1] != 0:
+                raise IOError("SOCKS5 CONNECT 失败，错误码=%s"
+                              % (head[1] if len(head) > 1 else "无响应"))
+            atyp = head[3] if len(head) > 3 else 1
+            if atyp == 1:                            # IPv4
+                raw.recv(4)
+            elif atyp == 3:                          # 域名
+                raw.recv(raw.recv(1)[0])
+            elif atyp == 4:                          # IPv6
+                raw.recv(16)
+            raw.recv(2)                              # BND.PORT
+            self.sock = self._context.wrap_socket(raw, server_hostname=self.host)
+        except Exception:
+            raw.close()
+            raise
+
+
+class _Socks5HTTPSHandler(urllib.request.HTTPSHandler):
+    def __init__(self, proxy, context=None):
+        urllib.request.HTTPSHandler.__init__(self, context=context)
+        self._proxy = proxy
+
+    def https_open(self, req):
+        def _conn(host, **kw):
+            return _Socks5HTTPSConnection(host, proxy=self._proxy,
+                                          context=self._context, **kw)
+        return self.do_open(_conn, req)
+
+
 def wx_opener():
     """决定微信看到的是哪个出口 IP —— 用之前先想清楚这一点。"""
     global _PROXY_OPENER
@@ -66,9 +128,11 @@ def wx_opener():
     if not p:
         return DIRECT
     if _PROXY_OPENER is None:
+        u = urllib.parse.urlsplit(p if "://" in p else "socks5h://" + p)
+        hp = (u.hostname or "127.0.0.1", u.port or 1080)
         _PROXY_OPENER = urllib.request.build_opener(
-            urllib.request.ProxyHandler({"http": p, "https": p}),
-            urllib.request.HTTPSHandler(context=_CTX),
+            urllib.request.ProxyHandler({}),     # 先屏蔽环境变量里的 http_proxy
+            _Socks5HTTPSHandler(hp, context=_CTX),
         )
     return _PROXY_OPENER
 
@@ -162,13 +226,9 @@ def detect_egress_ip(use_proxy=False):
 
 def detect_ip_through_configured_proxy():
     """经 WX_PROXY 出去看到的 IP —— 云端用来核对"隧道是否真的生效"。"""
-    p = use_proxy()
-    if not p:
+    if not use_proxy():
         return ""
-    op = urllib.request.build_opener(
-        urllib.request.ProxyHandler({"http": p, "https": p}),
-        urllib.request.HTTPSHandler(context=_CTX),
-    )
+    op = wx_opener()
     for u in IP_SOURCES:
         try:
             txt = _http(u, timeout=10, opener=op, attempts=1).decode("utf-8", "replace")
