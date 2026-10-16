@@ -413,6 +413,36 @@ DEFAULT_SETTINGS = {
 }
 
 
+# 云端（GitHub Actions）没有本地 SQLite 设置，凭据只能来自环境变量。
+# 命名刻意与 my_website/tools/config.py 保持一致，避免出现两套配置互相打架。
+# 优先级：环境变量 > 本地设置（本机不设这些变量，所以本机行为不变）。
+ENV_SETTINGS = [
+    ("llm_key",   "DEEPSEEK_API_KEY"),
+    ("llm_base",  "DEEPSEEK_BASE_URL"),
+    ("llm_model", "DEEPSEEK_MODEL"),
+]
+
+
+def _normalize_base(u):
+    """OpenAI 兼容接口要打到 <base>/chat/completions。
+    只给了裸域名（如 https://api.deepseek.com）时补上 /v1，否则会 404。"""
+    u = (u or "").strip().rstrip("/")
+    if not u:
+        return u
+    if u.count("/") == 2:          # https://host 这种只有两段斜杠
+        return u + "/v1"
+    return u
+
+
+def env_settings_overlay(out):
+    for k, envk in ENV_SETTINGS:
+        v = (os.environ.get(envk) or "").strip()
+        if v:
+            out[k] = v
+    out["llm_base"] = _normalize_base(out.get("llm_base"))
+    return out
+
+
 def get_setting(key, default=None):
     init()
     conn = connect()
@@ -430,7 +460,7 @@ def get_settings():
     conn.close()
     out = dict(DEFAULT_SETTINGS)
     out.update(rows)
-    return out
+    return env_settings_overlay(out)
 
 
 def set_setting(key, value):

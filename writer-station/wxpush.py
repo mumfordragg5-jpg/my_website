@@ -7,8 +7,10 @@
     1) access_token 有 7200s 有效期，且重复获取会顶掉旧的 —— 必须本地缓存
     2) 草稿的封面(thumb_media_id)必须先上传成永久素材，不能留空
     3) 正文里的 <img> 必须是微信域名，外链图会被吞 —— 这里会检查并告警
-    4) ★ IP 白名单：请求方出口 IP 必须在公众号后台白名单里，
-       所以本模块**强制直连、不走代理**（走代理时白名单填的是节点 IP，不可控）
+    4) ★ IP 白名单：请求方出口 IP 必须在公众号后台白名单里。
+       本机默认**强制直连**（走代理时白名单填的是节点 IP，不可控）；
+       而云端 runner 的 IP 每次都在变、根本没法加白名单，
+       所以额外支持 WX_PROXY —— 把请求导流到"出口固定 IP"的隧道（详见 PROXY_ENV）
 
 依赖：仅标准库。可选 Pillow —— 装了就能在封面上渲染中文标题，没装则出纯色渐变封面。
 """
@@ -36,11 +38,39 @@ _CTX = ssl.create_default_context()
 _CTX.check_hostname = False
 _CTX.verify_mode = ssl.CERT_NONE
 
-# ProxyHandler({}) 显式清空代理：微信要认真实出口 IP
+# ProxyHandler({}) 显式清空代理：微信要认真实出口 IP（本机直连就是这么来的）
 DIRECT = urllib.request.build_opener(
     urllib.request.ProxyHandler({}),
     urllib.request.HTTPSHandler(context=_CTX),
 )
+
+# ★ 云端例外：GitHub Actions runner 的出口 IP 每次运行都不同，无法加进白名单。
+#   仓库里既有的 SSH SOCKS5 隧道（GitHub workflow 里的 ssh -D 1080）出口是**固定 IP**，
+#   而且它早就在公众号白名单里了，所以云端只要设：
+#       WX_PROXY=socks5h://127.0.0.1:1080
+#   就等价于"用那个固定 IP 去调微信"。本机不设这个变量，行为与原来一模一样（直连）。
+#   注意：socks5h 需要 PySocks（pip install pysocks）。
+PROXY_ENV = "WX_PROXY"
+_PROXY_OPENER = None
+
+
+def use_proxy():
+    """返回当前配置的代理地址；空字符串 = 直连。"""
+    return (os.environ.get(PROXY_ENV) or "").strip()
+
+
+def wx_opener():
+    """决定微信看到的是哪个出口 IP —— 用之前先想清楚这一点。"""
+    global _PROXY_OPENER
+    p = use_proxy()
+    if not p:
+        return DIRECT
+    if _PROXY_OPENER is None:
+        _PROXY_OPENER = urllib.request.build_opener(
+            urllib.request.ProxyHandler({"http": p, "https": p}),
+            urllib.request.HTTPSHandler(context=_CTX),
+        )
+    return _PROXY_OPENER
 
 
 class WxError(RuntimeError):
@@ -68,7 +98,7 @@ def _http(url, data=None, method="GET", headers=None, timeout=30, opener=None):
     if headers:
         h.update(headers)
     req = urllib.request.Request(url, data=data, headers=h, method=method)
-    op = opener or DIRECT
+    op = opener or wx_opener()
     r = op.open(req, timeout=timeout)
     return r.read()
 
@@ -107,6 +137,26 @@ def detect_egress_ip(use_proxy=False):
     for u in IP_SOURCES:
         try:
             txt = _http(u, timeout=8, opener=op).decode("utf-8", "replace")
+            m = re.search(r"\d{1,3}(?:\.\d{1,3}){3}", txt)
+            if m:
+                return m.group(0)
+        except Exception:
+            continue
+    return ""
+
+
+def detect_ip_through_configured_proxy():
+    """经 WX_PROXY 出去看到的 IP —— 云端用来核对"隧道是否真的生效"。"""
+    p = use_proxy()
+    if not p:
+        return ""
+    op = urllib.request.build_opener(
+        urllib.request.ProxyHandler({"http": p, "https": p}),
+        urllib.request.HTTPSHandler(context=_CTX),
+    )
+    for u in IP_SOURCES:
+        try:
+            txt = _http(u, timeout=10, opener=op).decode("utf-8", "replace")
             m = re.search(r"\d{1,3}(?:\.\d{1,3}){3}", txt)
             if m:
                 return m.group(0)
@@ -485,6 +535,12 @@ def resolve_account(which="1"):
 
     for f in ("appid", "secret", "thumb", "author"):
         vals.setdefault(f, "")
+
+    # WS_COVER=auto → 忽略固定封面，改用自动生成的中文标题封面。
+    # （固定封面通常是另一个号/另一种内容的调性，套在养老稿上会很跳）
+    if (os.environ.get("WS_COVER") or "").strip().lower() == "auto":
+        vals["thumb"] = ""
+        sources.append("cover:auto")
 
     vals.update({"key": key, "label": ACCOUNT_LABEL[key], "sources": sources})
     return vals

@@ -1,0 +1,241 @@
+# ============================================================
+# 写作台 · 无人值守流水线（养老金 / 老年人感情 两个方向）
+#
+# 一次运行做四件事：
+#     采集素材 → 出稿（DeepSeek）→ 推公众号草稿箱 → 重建选题看板并提交
+#
+# 三个关键设计（改之前先读）：
+#   1) 素材库放在 Actions 缓存里（writer-station/data）。
+#      素材含他人文章标题与采集链接，仓库又是 public —— 绝不能提交进仓库。
+#      用 run_id 做 key + restore-keys 前缀滚动，缓存就一直是"最新那一份"。
+#   2) 推草稿箱必须走 SSH SOCKS5 隧道。
+#      微信 IP 白名单认的是固定出口 IP；runner 的 IP 每次都在变、加不了白名单。
+#      隧道出口就是早前已经加进白名单的那个固定 IP —— 靠 WX_PROXY 把请求导过去。
+#   3) 提交看板要用 GH_PAT，不能用默认 GITHUB_TOKEN。
+#      用 GITHUB_TOKEN 推的提交不会触发其它工作流（GitHub 防递归），
+#      deploy.yml 就不会跑，站点不会更新。
+#
+# 需要已存在的 Secrets（本仓库均已配置）：
+#   DEEPSEEK_API_KEY / WX_APPID / WX_APPSECRET / WX_APPID2 / WX_APPSECRET2
+#   SERVER_IP / SERVER_USER / SERVER_SSH_KEY / GH_PAT
+# 可选（Repository variables，不填则该字段留空）：
+#   WX_AUTHOR / WX_AUTHOR2
+# ============================================================
+
+name: 写作台 · 无人值守
+
+on:
+  schedule:
+    - cron: '30 0 * * *'        # 每天 08:30（北京时间）
+  workflow_dispatch:
+    inputs:
+      topics:
+        description: '方向（逗号分隔）'
+        required: false
+        default: '养老金,老年人感情'
+      harvest:
+        description: '本轮采集新素材'
+        required: false
+        type: boolean
+        default: true
+      count:
+        description: '本轮出几篇稿'
+        required: false
+        default: '2'
+      push:
+        description: '推送到公众号草稿箱'
+        required: false
+        type: boolean
+        default: true
+      account:
+        description: '推到哪个号'
+        required: false
+        type: choice
+        options: ['1', '2']
+        default: '1'
+      cover:
+        description: '封面：auto=按标题自动生成 / preset=用 Secrets 里的固定封面'
+        required: false
+        type: choice
+        options: ['auto', 'preset']
+        default: 'auto'
+      dry_run:
+        description: '只做环境诊断，不采集/不出稿/不推送'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: writer-station
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: 解析参数（schedule 触发时用默认值兜底）
+        id: p
+        run: |
+          T="${{ github.event.inputs.topics }}";  [ -z "$T" ] && T="养老金,老年人感情"
+          H="${{ github.event.inputs.harvest }}"; [ -z "$H" ] && H="true"
+          C="${{ github.event.inputs.count }}";   [ -z "$C" ] && C="2"
+          P="${{ github.event.inputs.push }}";    [ -z "$P" ] && P="true"
+          A="${{ github.event.inputs.account }}"; [ -z "$A" ] && A="1"
+          V="${{ github.event.inputs.cover }}";   [ -z "$V" ] && V="auto"
+          D="${{ github.event.inputs.dry_run }}"; [ -z "$D" ] && D="false"
+
+          FLAGS=""
+          [ "$H" = "true" ] && FLAGS="$FLAGS --harvest" || FLAGS="$FLAGS --no-harvest"
+          [ "$P" = "true" ] && FLAGS="$FLAGS --push"    || FLAGS="$FLAGS --no-push"
+          [ "$D" = "true" ] && FLAGS="$FLAGS --dry-run"
+
+          # 只有真要推送、且不是试运行，才需要隧道
+          if [ "$P" = "true" ] && [ "$D" != "true" ]; then
+            PROXY="socks5h://127.0.0.1:1080"
+            NEED_TUNNEL="true"
+          else
+            PROXY=""
+            NEED_TUNNEL="false"
+          fi
+
+          {
+            echo "flags=$FLAGS"
+            echo "count=$C"
+            echo "account=$A"
+            echo "cover=$V"
+            echo "push=$P"
+            echo "dry_run=$D"
+            echo "proxy=$PROXY"
+            echo "need_tunnel=$NEED_TUNNEL"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "方向=$T  出稿=$C篇  推送=$P  账号=$A  封面=$V  试运行=$D  参数=$FLAGS"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 恢复素材库缓存
+        uses: actions/cache/restore@v4
+        with:
+          path: writer-station/data
+          key: ws-data-${{ github.run_id }}
+          restore-keys: |
+            ws-data-
+
+      - name: 安装依赖
+        run: pip install jieba Pillow pysocks
+
+      - name: 建立 SSH 隧道（固定出口 IP，用于微信白名单）
+        if: ${{ steps.p.outputs.need_tunnel == 'true' }}
+        continue-on-error: true
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          if ssh -D 1080 -q -C -N -f \
+               -o StrictHostKeyChecking=no -o ExitOnForwardFailure=yes \
+               -o ConnectTimeout=20 -o ServerAliveInterval=30 \
+               -i ~/.ssh/id_ed25519 "$SERVER_USER@$SERVER_IP"; then
+            echo "✅ SOCKS5 隧道已就绪：127.0.0.1:1080"
+          else
+            echo "::warning::隧道建立失败 —— 推送大概率会失败（微信白名单过不去）"
+          fi
+
+      - name: 运行流水线
+        id: run
+        env:
+          # ---- LLM ----
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_BASE_URL: https://api.deepseek.com/v1
+          DEEPSEEK_MODEL: deepseek-chat
+          # ---- 公众号（与 tools/config.py 的命名保持一致）----
+          WX_APPID: ${{ secrets.WX_APPID }}
+          WX_APPSECRET: ${{ secrets.WX_APPSECRET }}
+          WX_APPID2: ${{ secrets.WX_APPID2 }}
+          WX_APPSECRET2: ${{ secrets.WX_APPSECRET2 }}
+          WX_AUTHOR: ${{ vars.WX_AUTHOR }}
+          WX_AUTHOR2: ${{ vars.WX_AUTHOR2 }}
+          # 故意不传 WX_THUMB_MEDIA_ID：那个固定封面是财经号的调性，
+          # 套在养老/情感稿上会跳，这里用自动生成的中文标题封面。
+          WS_COVER: ${{ steps.p.outputs.cover }}
+          # ---- 出口 IP：把微信请求导到隧道 ----
+          WX_PROXY: ${{ steps.p.outputs.proxy }}
+        run: |
+          python writer-station/cloud_runner.py \
+            --topics "${{ github.event.inputs.topics || '养老金,老年人感情' }}" \
+            --count "${{ steps.p.outputs.count }}" \
+            --account "${{ steps.p.outputs.account }}" \
+            ${{ steps.p.outputs.flags }} \
+            2>&1 | tee ws-run.log
+
+      - name: 保存素材库缓存（永远执行，即使上面失败）
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: writer-station/data
+          key: ws-data-${{ github.run_id }}
+
+      - name: 提交选题看板
+        # 即使出稿/推送那步失败了也要提交 —— 看板本身可能已经重建好了
+        if: ${{ always() && steps.p.outputs.dry_run != 'true' }}
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          TOKEN_DEFAULT: ${{ github.token }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ -z "$(git status --porcelain data/writing-desk.json)" ]; then
+            echo "看板无变化，跳过提交。"
+            exit 0
+          fi
+          git add data/writing-desk.json
+          git commit -m "chore(writer-station): 更新选题看板 $(date -u +%F)"
+
+          # 注意：checkout 会把 GITHUB_TOKEN 塞进 http.<host>.extraheader，
+          # 它的优先级高于 URL 里的凭据 —— 不摘掉的话 GH_PAT 会被默默忽略，
+          # 结果就是"推送成功但 Pages 没重新部署"这种最难查的问题。
+          attempt_push () {
+            local tok="$1" label="$2" i
+            git config --local --unset-all http.https://github.com/.extraheader >/dev/null 2>&1 || true
+            git remote set-url origin "https://x-access-token:${tok}@github.com/${GITHUB_REPOSITORY}.git"
+            for i in 1 2 3 4 5; do
+              if git push origin HEAD:main >/dev/null 2>&1; then
+                echo "✅ 推送成功（$label，第 $i 次尝试）"
+                return 0
+              fi
+              echo "  $label 第 $i 次 push 未成功（git 偶发 rc=128 且无输出），重试…"
+              sleep $((i * 4))
+            done
+            return 1
+          }
+
+          if [ -n "${GH_PAT:-}" ] && attempt_push "$GH_PAT" "GH_PAT"; then
+            exit 0
+          fi
+          echo "::warning::GH_PAT 推送未成功，退回 GITHUB_TOKEN（站点的 Pages 不会因此自动重新部署）"
+          if attempt_push "${TOKEN_DEFAULT}" "GITHUB_TOKEN"; then
+            exit 0
+          fi
+          echo "::error::看板提交推送失败"
+          exit 1
+
+      - name: 失败时贴出运行日志尾部
+        if: failure()
+        run: |
+          echo "===== ws-run.log 末尾 120 行 ====="
+          tail -n 120 ws-run.log 2>/dev/null || echo "(没有 ws-run.log)"

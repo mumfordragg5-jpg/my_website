@@ -175,6 +175,15 @@ def main():
     db.init()
 
     topics = db.topics_summary()
+    # 云端首次运行、或缓存被清掉时，库会是空的。
+    # 这时绝不能拿"空统计"覆盖掉线上已有的看板 —— 那等于把站点页面打回空白。
+    if not topics:
+        if a.keep and os.path.exists(a.out):
+            print("[board] 素材库为空，保留已有看板：%s" % a.out)
+            return 0
+        print("[board] 素材库为空，没有可统计的素材")
+        return 1
+
     blocks, total_all, body_all = [], 0, 0
     for t in topics:
         name = t.get("topic") or "未分类"
