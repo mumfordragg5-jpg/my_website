@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>公众号写作工作台</title>
+<style>
+:root{
+  --bg:#f5f3f0; --panel:#ffffff; --line:#e8e3dd; --line2:#d9d3cb;
+  --tx:#2c2c2c; --tx2:#6b6660; --tx3:#9a938b;
+  --pri:#c0504d; --pri-bg:#fbf1f0; --pri-line:#e8c9c7;
+  --ok:#2f7d55; --ok-bg:#eef7f2;
+  --warn:#8a6d3b; --warn-bg:#fffaf0; --warn-line:#f0e2c8;
+  --blue:#2f6fa8; --blue-bg:#eef4fa;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);
+  font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;}
+a{color:var(--pri);text-decoration:none}
+header{background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.hd{max-width:1240px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.logo{font-size:16px;font-weight:600;letter-spacing:.5px}
+.logo span{color:var(--pri)}
+.stats{display:flex;gap:14px;font-size:12px;color:var(--tx2);margin-left:auto;flex-wrap:wrap}
+.stats b{color:var(--tx);font-weight:600}
+nav{background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:57px;z-index:19}
+.nav{max-width:1240px;margin:0 auto;padding:0 20px;display:flex;gap:2px;overflow-x:auto}
+.nav button{background:none;border:none;padding:12px 16px;font-size:14px;color:var(--tx2);
+  cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;font-family:inherit}
+.nav button:hover{color:var(--tx)}
+.nav button.on{color:var(--pri);border-bottom-color:var(--pri);font-weight:600}
+main{max-width:1240px;margin:0 auto;padding:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:16px}
+.card h2{margin:0 0 4px;font-size:15px;font-weight:600}
+.card .hint{margin:0 0 14px;font-size:12px;color:var(--tx3);line-height:1.6}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+label.f{font-size:12px;color:var(--tx2);display:block;margin-bottom:5px}
+input,select,textarea{font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line2);
+  border-radius:6px;background:#fff;color:var(--tx);outline:none;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-bg)}
+button.b{font-family:inherit;font-size:13px;padding:8px 15px;border-radius:6px;border:1px solid var(--line2);
+  background:#fff;color:var(--tx);cursor:pointer;white-space:nowrap}
+button.b:hover{border-color:var(--tx3)}
+button.b.pri{background:var(--pri);border-color:var(--pri);color:#fff}
+button.b.pri:hover{background:#a84542}
+button.b.ghost{background:var(--pri-bg);border-color:var(--pri-line);color:var(--pri)}
+button.b:disabled{opacity:.45;cursor:not-allowed}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:14px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--tx2);font-weight:500;background:#faf8f6;position:sticky;top:0}
+tbody tr:hover{background:#faf8f6}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:20px;
+  background:var(--blue-bg);color:var(--blue);margin-right:5px;white-space:nowrap}
+.tag.p{background:var(--pri-bg);color:var(--pri)}
+.tag.g{background:var(--ok-bg);color:var(--ok)}
+.tag.w{background:var(--warn-bg);color:var(--warn)}
+.tag.n{background:#f0eee9;color:var(--tx2)}
+.muted{color:var(--tx3);font-size:12px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.two{grid-template-columns:1fr}}
+.box{border:1px solid var(--line);border-radius:8px;padding:14px;background:#fdfcfb;max-height:560px;overflow:auto}
+.box h3{margin:0 0 10px;font-size:13px;font-weight:600;position:sticky;top:-14px;
+  background:#fdfcfb;padding:14px 0 8px;margin-top:-14px;border-bottom:1px solid var(--line);z-index:2}
+.box p{margin:0 0 11px;font-size:13px;line-height:1.8}
+pre{white-space:pre-wrap;word-break:break-word;font-family:inherit;font-size:13px;line-height:1.8;margin:0}
+.log{background:#2c2c2c;color:#d8d4cf;border-radius:8px;padding:12px;font-size:12px;
+  max-height:220px;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace;line-height:1.7}
+.empty{text-align:center;padding:40px 20px;color:var(--tx3);font-size:13px}
+.note{background:var(--warn-bg);border:1px solid var(--warn-line);color:var(--warn);
+  border-radius:8px;padding:11px 13px;font-size:12px;line-height:1.7;margin-bottom:14px}
+.note.red{background:var(--pri-bg);border-color:var(--pri-line);color:#96393a}
+.pill{font-size:11px;padding:2px 8px;border-radius:20px;background:#f0eee9;color:var(--tx2)}
+.pill.run{background:var(--warn-bg);color:var(--warn)}
+.pill.done{background:var(--ok-bg);color:var(--ok)}
+.sec{font-size:12px;color:var(--tx2);font-weight:600;margin:16px 0 8px;
+  padding-bottom:6px;border-bottom:1px solid var(--line)}
+.kv{font-size:12px;color:var(--tx2);margin-bottom:6px}
+.kv b{color:var(--tx);font-weight:500}
+.hide{display:none!important}
+.tpl-item{font-size:13px;padding:7px 0;border-bottom:1px dashed var(--line);line-height:1.7}
+.tpl-item:last-child{border-bottom:none}
+.rec{font-size:13px;line-height:1.8;padding-left:16px;position:relative;margin-bottom:6px}
+.rec:before{content:"→";position:absolute;left:0;color:var(--pri)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hd">
+    <div class="logo">公众号写作<span>工作台</span></div>
+    <div class="stats" id="stats"></div>
+  </div>
+</header>
+
+<nav><div class="nav" id="nav"></div></nav>
+
+<main>
+  <div id="view"></div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const api = {
+  async get(p){ const r = await fetch(p); if(!r.ok) throw new Error((await r.json()).error||r.status); return r.json(); },
+  async post(p,d){ const r=await fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d||{})});
+    if(!r.ok) throw new Error((await r.json()).error||r.status); return r.json(); },
+  async del(p){ const r=await fetch(p,{method:'DELETE'}); return r.json(); }
+};
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const toast = (m,kind) => { const d=document.createElement('div');
+  d.textContent=m; d.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:99;'+
+  'padding:10px 18px;border-radius:8px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.14);'+
+  (kind==='err'?'background:#96393a;color:#fff':'background:#2c2c2c;color:#fff');
+  document.body.appendChild(d); setTimeout(()=>d.remove(),2600); };
+
+let STATE = { tab:'pool', topic:'', articles:[], drafts:[], cur:null, settings:{}, journal:{running:false,log:[]} };
+
+const TABS = [
+  ['pool','素材池'],['template','选题分析'],['compose','改写'],['drafts','草稿'],['settings','设置']
+];
+
+function renderNav(){
+  $('#nav').innerHTML = TABS.map(([k,l])=>
+    `<button data-tab="${k}" class="${STATE.tab===k?'on':''}">${l}</button>`).join('');
+  document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{
+    STATE.tab=b.dataset.tab; render();
+  });
+}
+
+async function refreshStats(){
+  try{
+    const s = await api.get('/api/stats');
+    $('#stats').innerHTML =
+      `素材 <b>${s.articles}</b> · 带正文 <b>${s.articles_with_body}</b> · 已分析 <b>${s.analyses}</b> · 草稿 <b>${s.drafts}</b>`;
+  }catch(e){ $('#stats').textContent=''; }
+}
+
+function topicOptions(sel){
+  const list = ['','养老金','老年人感情'];
+  return list.map(t=>`<option value="${esc(t)}" ${t===sel?'selected':''}>${t||'全部话题'}</option>`).join('');
+}
+
+/* ---------------- 素材池 ---------------- */
+async function viewPool(){
+  const v = $('#view');
+  const q = STATE.topic?('?topic='+encodeURIComponent(STATE.topic)+'&with_analysis=1'):'?with_analysis=1';
+  STATE.articles = await api.get('/api/articles'+q);
+  v.innerHTML = `
+  <div class="card">
+    <h2>采集新素材</h2>
+    <p class="hint">搜狗微信搜索抓取。实测反爬极严：一次只能拿少量，抓正文尤其容易被拦，建议先只抓列表、分批补正文。</p>
+    <div class="fields">
+      <div><label class="f">关键词（逗号分隔）</label><input id="c_kw" value="养老金,退休金上调"></div>
+      <div><label class="f">归入话题</label><select id="c_topic">${topicOptions('养老金')}</select></div>
+      <div><label class="f">每个词取几条</label><input id="c_limit" type="number" value="10" min="1" max="30"></div>
+      <div><label class="f">间隔秒数</label><input id="c_delay" type="number" value="25" min="3" max="120"></div>
+    </div>
+    <div class="row">
+      <label style="font-size:13px;color:var(--tx2)"><input type="checkbox" id="c_body" style="width:auto"> 同时抓正文（慢，限量）</label>
+      <button class="b pri" id="btn_collect">开始采集</button>
+      <button class="b" id="btn_analyze">对已有素材做结构分析</button>
+      <span id="jobpill"></span>
+    </div>
+    <div class="log hide" id="joblog" style="margin-top:14px"></div>
+  </div>
+
+  <div class="card">
+    <h2>素材池 <span class="pill">${STATE.articles.length} 条</span></h2>
+    <p class="hint">带正文的素材才能生成改写。没正文的可以先做结构分析积累选题情报。</p>
+    <div class="row" style="margin-bottom:12px">
+      <select id="f_topic" style="width:auto" onchange="STATE.topic=this.value;render()">${topicOptions(STATE.topic)}</select>
+    </div>
+    ${STATE.articles.length?`
+    <table><thead><tr><th style="width:44%">标题</th><th>公众号</th><th>正文</th><th>分析</th><th style="width:150px"></th></tr></thead>
+    <tbody>${STATE.articles.map(a=>{
+      const an = a._an;
+      return `<tr>
+        <td>${esc(a.title)}</td>
+        <td class="muted">${esc(a.account||'—')}</td>
+        <td>${a.body_len>0?`<span class="tag g">${a.body_len}字</span>`:'<span class="tag n">无</span>'}</td>
+        <td>${an?`<span class="tag p">${esc(an.title_pattern||'')}</span><span class="tag">${esc(an.topic_type||'')}</span>`:'<span class="muted">未分析</span>'}</td>
+        <td>
+          <button class="b" onclick="openArticle(${a.id})">查看</button>
+          <button class="b ghost" onclick="goCompose(${a.id})" ${a.body_len?'':'disabled'}>改写</button>
+        </td></tr>`;}).join('')}</tbody></table>`
+    :`<div class="empty">还没有素材。上面填关键词，点「开始采集」。</div>`}
+  </div>`;
+  bindPool();
+}
+
+function bindPool(){
+  const bc = $('#btn_collect');
+  if(bc) bc.onclick = async ()=>{
+    const d = {
+      keywords: $('#c_kw').value, topic: $('#c_topic').value,
+      limit: +$('#c_limit').value, delay: +$('#c_delay').value,
+      with_body: $('#c_body').checked
+    };
+    try{
+      await api.post('/api/collect', d);
+      toast('采集任务已开始，请看日志');
+      pollJob();
+    }catch(e){ toast('启动失败：'+e.message,'err'); }
+  };
+  const ba = $('#btn_analyze');
+  if(ba) ba.onclick = async ()=>{
+    try{ await api.post('/api/analyze',{topic:null}); toast('分析任务已开始'); pollJob(); }
+    catch(e){ toast('启动失败：'+e.message,'err'); }
+  };
+}
+
+let _pollT=null;
+async function pollJob(){
+  clearInterval(_pollT);
+  const tick = async ()=>{
+    try{
+      const j = await api.get('/api/journal');
+      STATE.journal = j;
+      const pill = $('#jobpill'), logEl = $('#joblog');
+      if(pill) pill.innerHTML = j.running? '<span class="pill run">运行中…</span>' : '<span class="pill done">空闲</span>';
+      if(logEl){ logEl.classList.toggle('hide', !j.log.length); logEl.textContent = j.log.join('\n'); logEl.scrollTop = logEl.scrollHeight; }
+      if(!j.running){ clearInterval(_pollT); await refreshStats(); if(STATE.tab==='pool') render(); }
+    }catch(e){ clearInterval(_pollT); }
+  };
+  tick(); _pollT = setInterval(tick, 1500);
+}
+
+async function openArticle(id){
+  const a = await api.get('/api/articles/'+id);
+  const an = a.analysis;
+  const modal = document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.onclick = e => { if(e.target===modal) modal.remove(); };
+  modal.innerHTML = `<div style="background:#fff;border-radius:12px;max-width:820px;width:100%;max-height:86vh;overflow:auto;padding:22px">
+    <h2 style="margin:0 0 6px;font-size:16px">${esc(a.title)}</h2>
+    <div class="kv"><b>公众号</b> ${esc(a.account||'—')} · <b>话题</b> ${esc(a.topic||'—')} · <b>正文</b> ${a.body_len} 字</div>
+    ${a.real_url?`<div class="kv"><a href="${esc(a.real_url)}" target="_blank">原文链接</a></div>`:''}
+    ${an?`
+      <div class="sec">结构分析</div>
+      <div class="kv"><b>标题模式</b> ${esc(an.title_pattern)} · <b>选题类型</b> ${esc(an.topic_type)}</div>
+      <div class="kv"><b>钩子手法</b></div>
+      ${(an.hooks||[]).map(h=>`<div class="rec">${esc(h)}</div>`).join('')}
+      <div class="kv" style="margin-top:10px"><b>正文骨架</b></div>
+      ${(an.skeleton||[]).map(s=>`<div class="rec">${esc(s.role)}：${esc(s.desc)}${(s.points&&s.points.length)?'（'+s.points.map(esc).join('、')+'）':''}</div>`).join('')}
+      <div class="kv" style="margin-top:10px"><b>关键词</b> ${(an.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
+    `:`<div class="note">尚未分析。回到素材池点「对已有素材做结构分析」。</div>`}
+    <div class="sec">正文</div>
+    <pre style="font-size:13px;color:#444">${esc(a.body||'（未抓取正文）')}</pre>
+    <div class="row" style="margin-top:16px">
+      <button class="b ghost" onclick="this.closest('div[style*=fixed]').remove();goCompose(${a.id})" ${a.body_len?'':'disabled'}>去改写</button>
+      <button class="b" onclick="this.closest('div[style*=fixed]').remove()">关闭</button>
+    </div></div>`;
+  document.body.appendChild(modal);
+}
+
+/* ---------------- 选题分析 ---------------- */
+async function viewTemplate(){
+  const v = $('#view');
+  if(STATE.tplTopic === undefined) STATE.tplTopic = '养老金';
+  const topic = STATE.tplTopic || '';
+  let t;
+  try{ t = await api.get('/api/template?topic='+encodeURIComponent(topic)); }catch(e){ t = {empty:true}; }
+  v.innerHTML = `
+  <div class="card">
+    <h2>选题分析 · ${esc(topic||'全部话题')}</h2>
+    <p class="hint">把该话题下所有素材的爆款特征聚合起来，告诉你这个方向现在什么写法最吃香。<b>只借结构与选题角度，不抄表达。</b></p>
+    <div class="row" style="margin-bottom:14px">
+      <select style="width:auto" onchange="STATE.tplTopic=this.value;render()">
+        <option value="养老金" ${topic==='养老金'?'selected':''}>养老金</option>
+        <option value="老年人感情" ${topic==='老年人感情'?'selected':''}>老年人感情</option>
+        <option value="" ${topic===''?'selected':''}>全部话题</option>
+      </select>
+    </div>
+    ${t.empty?`<div class="empty">该话题还没有带正文的素材。<br>先采集并抓取正文，再点「对已有素材做结构分析」。</div>`:`
+    <div class="two">
+      <div class="box">
+        <h3>标题模式分布</h3>
+        ${(t.title_patterns||[]).map(([k,n])=>`<div class="tpl-item"><span class="tag p">${esc(k)}</span> ×${n} 篇</div>`).join('')||'<div class="muted">—</div>'}
+        <h3 style="margin-top:18px">选题类型分布</h3>
+        ${(t.topic_types||[]).map(([k,n])=>`<div class="tpl-item"><span class="tag">${esc(k)}</span> ×${n} 篇</div>`).join('')||'<div class="muted">—</div>'}
+        <h3 style="margin-top:18px">高频关键词</h3>
+        <div style="padding-top:6px">${(t.top_tags||[]).map(([k,n])=>`<span class="tag">${esc(k)} <span class="muted">${n}</span></span>`).join('')||'<span class="muted">—</span>'}</div>
+      </div>
+      <div class="box">
+        <h3>高频钩子手法</h3>
+        ${(t.top_hooks||[]).map(([k,n])=>`<div class="tpl-item">${esc(k)} <span class="muted">×${n}</span></div>`).join('')||'<div class="muted">—</div>'}
+        <h3 style="margin-top:18px">可执行建议</h3>
+        <div style="padding-top:6px">${(t.recommend||[]).map(r=>`<div class="rec">${esc(r)}</div>`).join('')}</div>
+      </div>
+    </div>
+    <div class="note" style="margin-top:14px">
+      样本量 ${t.count} 篇。样本越多，统计越可信 —— 建议每个话题至少积累 10~20 篇带正文的素材。
+    </div>`}
+  </div>`;
+}
+
+/* ---------------- 改写 ---------------- */
+async function goCompose(id){ STATE.composeId = id; STATE.tab='compose'; render(); }
+
+async function viewCompose(){
+  const v = $('#view');
+  const id = STATE.composeId;
+  const arts = await api.get('/api/articles?with_analysis=1');
+  const withBody = arts.filter(a=>a.body_len>0);
+
+  v.innerHTML = `
+  <div class="card">
+    <h2>改写</h2>
+    <p class="hint">
+      标题<b>原样锁定</b>不改；正文只参考爆款的<b>结构骨架</b>与钩子手法，
+      再强制注入抓取到的<b>公开信息</b>作为增量 —— 这样出来的成品才有独立信息价值。
+    </p>
+    <div class="note red">
+      请勿把别人的句子换词重发。著作权保护的是"表达"，只换词仍构成侵权，平台也能识别。
+      这里的设计是"学结构、补事实、重写表达"。
+    </div>
+    <div class="fields">
+      <div><label class="f">选择素材（需带正文）</label>
+        <select id="g_art" onchange="STATE.composeId=+this.value;render()">
+          <option value="0">— 请选择 —</option>
+          ${withBody.map(a=>`<option value="${a.id}" ${a.id===id?'selected':''}>#${a.id} ${esc(a.title.slice(0,34))}</option>`).join('')}
+        </select></div>
+      <div><label class="f">目标字数</label><input id="g_wc" type="number" value="1200" min="400" max="3000"></div>
+      <div><label class="f">增量关键词（逗号分隔）</label><input id="g_inc" placeholder="留空则按话题自动"></div>
+    </div>
+    <div class="row">
+      <label style="font-size:13px;color:var(--tx2)"><input type="checkbox" id="g_llm" style="width:auto"> 用 LLM 直接出稿（需在设置里配好 API）</label>
+      <button class="b pri" id="btn_gen" ${id?'':'disabled'}>生成草稿</button>
+      <button class="b ghost" id="btn_inc">只取增量信息</button>
+    </div>
+    <div id="incbox"></div>
+  </div>
+
+  ${id?`<div class="card" id="result">
+    <h2>生成结果</h2>
+    <div class="row" style="margin-bottom:10px">
+      <button class="b pri" id="btn_export">导出 / 复制公众号 HTML</button>
+      <button class="b" id="btn_preview">在新窗口预览</button>
+      <button class="b" id="btn_save">保存修改</button>
+      <span id="expinfo" class="muted"></span>
+    </div>
+    <div class="two">
+      <div class="box"><h3>结构参考（原文，仅供对照）</h3><div id="pane_src" class="muted">生成后显示</div></div>
+      <div class="box"><h3>改写稿（可编辑）</h3>
+        <textarea id="pane_out" style="width:100%;height:460px;border:1px solid var(--line2);font-size:13px;line-height:1.8"></textarea>
+      </div>
+    </div>
+  </div>`:''}`;
+
+  bindCompose();
+}
+
+function bindCompose(){
+  const bg = $('#btn_gen');
+  if(bg) bg.onclick = async ()=>{
+    const id = STATE.composeId;
+    if(!id) return toast('先选素材','err');
+    bg.disabled = true; bg.textContent='生成中…';
+    try{
+      const incKw = $('#g_inc').value.trim();
+      const r = await api.post('/api/generate', {
+        article_id: id, word_count: +$('#g_wc').value,
+        use_llm: $('#g_llm').checked,
+        inc_keywords: incKw? incKw.replace('，',',').split(',').map(s=>s.trim()).filter(Boolean): null
+      });
+      STATE.cur = r;
+      await renderResult();
+      toast('草稿已生成（引擎：'+r.engine+'）');
+    }catch(e){ toast('生成失败：'+e.message,'err'); }
+    bg.disabled=false; bg.textContent='生成草稿';
+  };
+  const bi = $('#btn_inc');
+  if(bi) bi.onclick = async ()=>{
+    const kw = ($('#g_inc').value.trim()|| ($('#g_art').selectedOptions[0]?.textContent||''));
+    try{
+      const r = await api.post('/api/increments', {keywords: kw.replace('，',',').split(',').map(s=>s.trim()).filter(Boolean).slice(0,3), limit:4});
+      $('#incbox').innerHTML = `<div class="sec">增量信息（公开来源）</div>` +
+        r.items.map(i=>`<div class="tpl-item">${esc(i.title||'')} <span class="muted">${esc(i.source||'')}</span><br><span class="muted">${esc((i.snippet||'').slice(0,140))}</span></div>`).join('');
+    }catch(e){ toast('抓取失败：'+e.message,'err'); }
+  };
+  const bp = $('#btn_preview');
+  if(bp) bp.onclick = ()=>{ if(STATE.cur) window.open('/api/drafts/'+STATE.cur.draft_id+'/preview','_blank'); };
+  const bs = $('#btn_save');
+  if(bs) bs.onclick = async ()=>{
+    if(!STATE.cur) return;
+    await fetch('/api/drafts/'+STATE.cur.draft_id+'/save',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({title:STATE.cur.title, body:$('#pane_out').value, status:'draft'})});
+    STATE.cur.body = $('#pane_out').value;
+    toast('已保存');
+  };
+  const be = $('#btn_export');
+  if(be) be.onclick = async ()=>{
+    if(!STATE.cur) return;
+    const r = await api.post('/api/drafts/'+STATE.cur.draft_id+'/export',{});
+    try{
+      await navigator.clipboard.writeText(r.snippet);
+      $('#expinfo').textContent = '✅ 公众号 HTML 已复制到剪贴板，去公众号编辑器 Ctrl+V 粘贴即可';
+      toast('已复制公众号 HTML');
+    }catch(e){
+      $('#expinfo').innerHTML = '已生成文件：<code>'+esc(r.page_path)+'</code>（浏览器未授权剪贴板）';
+      toast('已导出文件');
+    }
+  };
+}
+
+async function renderResult(){
+  const r = STATE.cur; if(!r) return;
+  const a = await api.get('/api/articles/'+r.article_id);
+  const an = a.analysis;
+  $('#pane_src').innerHTML = `
+    <div class="kv"><b>原文标题</b><br>${esc(a.title)}</div>
+    <div class="kv"><b>原文长度</b> ${a.body_len} 字</div>
+    ${an?`<div class="kv"><b>骨架</b> ${(an.skeleton||[]).map(s=>esc(s.role)).join(' → ')}</div>
+      <div class="kv"><b>钩子</b></div>${(an.hooks||[]).map(h=>`<div class="rec">${esc(h)}</div>`).join('')}`:''}
+    <div class="sec">原文正文</div>
+    <pre style="font-size:12px;color:#666;max-height:260px;overflow:auto">${esc(a.body||'')}</pre>`;
+  $('#pane_out').value = r.body || '';
+}
+
+/* ---------------- 草稿 ---------------- */
+async function viewDrafts(){
+  const v = $('#view');
+  STATE.drafts = await api.get('/api/drafts');
+  v.innerHTML = `
+  <div class="card">
+    <h2>草稿 <span class="pill">${STATE.drafts.length} 篇</span></h2>
+    <p class="hint">草稿生成后可以继续编辑，导出为公众号可粘贴的 HTML。推送环节需要公众号接口权限，见「设置」页说明。</p>
+    ${STATE.drafts.length?`
+    <table><thead><tr><th style="width:34%">标题（已锁定）</th><th>话题</th><th>状态</th><th>字数</th><th>更新时间</th><th style="width:270px"></th></tr></thead>
+    <tbody>${STATE.drafts.map(d=>`<tr>
+      <td>${esc(d.title)}</td>
+      <td><span class="tag">${esc(d.topic||'—')}</span></td>
+      <td>${d.status==='pushed'?'<span class="tag" style="background:#e8f5e9;color:#2e7d32">已推送</span>':'<span class="muted">草稿</span>'}</td>
+      <td>${(d.body||'').length}</td>
+      <td class="muted">${esc(d.updated_at||'')}</td>
+      <td>
+        <button class="b" onclick="openDraft(${d.id})">打开</button>
+        <button class="b pri" onclick="pushDraft(${d.id})">推送草稿箱</button>
+        <button class="b ghost" onclick="window.open('/api/drafts/${d.id}/preview','_blank')">预览</button>
+        <button class="b" onclick="delDraft(${d.id})">删除</button>
+      </td></tr>`).join('')}</tbody></table>`
+    :`<div class="empty">还没有草稿。去「改写」页生成一篇。</div>`}
+  </div>`;
+}
+
+async function openDraft(id){
+  const d = await api.get('/api/drafts/'+id);
+  const modal = document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.onclick = e => { if(e.target===modal) modal.remove(); };
+  modal.innerHTML = `<div style="background:#fff;border-radius:12px;max-width:900px;width:100%;max-height:88vh;overflow:auto;padding:22px">
+    <h2 style="margin:0 0 8px;font-size:16px">${esc(d.title)}</h2>
+    <div class="kv"><b>话题</b> ${esc(d.topic||'—')} · <b>引擎</b> ${esc(d.engine||'—')} · <b>更新</b> ${esc(d.updated_at||'')}</div>
+    <div class="sec">正文（可编辑）</div>
+    <textarea id="m_body" style="width:100%;height:400px;font-size:13px;line-height:1.8">${esc(d.body||'')}</textarea>
+    <div class="row" style="margin-top:14px">
+      <button class="b pri" onclick="saveDraftModal(${id})">保存</button>
+      <select id="m_acct" style="width:auto;padding:4px 8px"><option value="1">主号</option><option value="2">副号（科技马前卒）</option></select>
+      <button class="b" onclick="pushDraft(${id}, document.getElementById('m_acct').value)">推送到草稿箱</button>
+      <button class="b ghost" onclick="exportDraft(${id})">复制公众号 HTML</button>
+      <button class="b ghost" onclick="window.open('/api/drafts/${id}/preview','_blank')">预览</button>
+      <button class="b" onclick="this.closest('div[style*=fixed]').remove()">关闭</button>
+    </div></div>`;
+  document.body.appendChild(modal);
+}
+async function saveDraftModal(id){
+  const body = document.querySelector('#m_body').value;
+  await fetch('/api/drafts/'+id+'/save',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({body, status:'draft'})});
+  toast('已保存'); render();
+}
+async function exportDraft(id){
+  const r = await api.post('/api/drafts/'+id+'/export',{});
+  try{ await navigator.clipboard.writeText(r.snippet); toast('已复制公众号 HTML'); }
+  catch(e){ toast('已导出文件：'+r.page_path); }
+}
+async function pushDraft(id, acct){
+  let account = acct;
+  if(!account){
+    try{ const s = await api.get('/api/settings'); account = s.wx_default_account || '1'; }
+    catch(e){ account = '1'; }
+  }
+  account = String(account) === '2' ? '2' : '1';
+  const label = account === '2' ? '副号（科技马前卒）' : '主号';
+  if(!confirm('把这篇草稿推送到「'+label+'」的草稿箱？\n\n（只会进草稿箱，不会群发）')) return;
+  toast('推送中…');
+  try{
+    const r = await api.post('/api/wx/push', {draft_id:id, account:account});
+    if(r.error){ alert('推送失败：'+r.error+(r.hint?('\n\n'+r.hint):'')); return; }
+    let msg = '已推送「'+label+'」 ✓\nmedia_id: '+r.media_id;
+    if(r.thumb_media_id) msg += '\n封面: '+(r.cover_url||r.thumb_media_id);
+    if(r.warnings && r.warnings.length) msg += '\n\n注意：\n- '+r.warnings.join('\n- ');
+    alert(msg); render();
+  }catch(e){ alert('推送异常：'+e.message); }
+}
+async function delDraft(id){
+  if(!confirm('确认删除这篇草稿？')) return;
+  await api.del('/api/drafts/'+id); toast('已删除'); render();
+}
+
+/* ---------------- 设置 ---------------- */
+async function viewSettings(){
+  const v = $('#view');
+  const s = await api.get('/api/settings');
+  STATE.settings = s;
+  v.innerHTML = `
+  <div class="card">
+    <h2>改写用的 LLM（可选）</h2>
+    <p class="hint">填了就能一键出成稿；不填则输出「写作任务书」，人工或后续补写。支持任何 OpenAI 兼容接口（DeepSeek / 通义 / Kimi / 智谱 等）。</p>
+    <div class="fields">
+      <div><label class="f">API Base</label><input id="s_base" value="${esc(s.llm_base||'')}" placeholder="https://api.deepseek.com/v1"></div>
+      <div><label class="f">API Key</label><input id="s_key" type="password" value="${esc(s.llm_key||'')}" placeholder="sk-..."></div>
+      <div><label class="f">模型名</label><input id="s_model" value="${esc(s.llm_model||'')}" placeholder="deepseek-chat"></div>
+    </div>
+    <div class="sec">采集参数</div>
+    <div class="fields">
+      <div><label class="f">默认间隔秒数</label><input id="s_delay" type="number" value="${esc(s.collect_delay||'25')}"></div>
+      <div><label class="f">关注话题</label><input id="s_topics" value="${esc(s.topics||'')}"></div>
+    </div>
+    <button class="b pri" id="btn_save_s">保存设置</button>
+    <span id="s_info" class="muted"></span>
+  </div>
+
+  <div class="card">
+    <h2>微信公众号草稿箱</h2>
+    <p class="hint">账号已认证，可直连官方 <code>draft/add</code> 接口推送。标题锁定、正文转成内联样式 HTML，推过去直接就是一篇草稿，不会群发。</p>
+    <div class="fields">
+      <div><label class="f">AppID</label><input id="s_appid" value="${esc(s.wx_appid||'')}" placeholder="wx................"></div>
+      <div><label class="f">AppSecret</label><input id="s_secret" type="password" value="${esc(s.wx_appsecret||'')}" placeholder="公众号后台 → 基本配置"></div>
+      <div><label class="f">作者名（文末显示）</label><input id="s_author" value="${esc(s.wx_author||'')}" placeholder="如：老张说养老"></div>
+    </div>
+
+    <div class="sec">副号（科技马前卒）</div>
+    <div class="fields">
+      <div><label class="f">AppID</label><input id="s_appid2" value="${esc(s.wx_appid2||'')}" placeholder="wx................"></div>
+      <div><label class="f">AppSecret</label><input id="s_secret2" type="password" value="${esc(s.wx_appsecret2||'')}" placeholder="公众号后台 → 基本配置"></div>
+      <div><label class="f">作者名（文末显示）</label><input id="s_author2" value="${esc(s.wx_author2||'')}" placeholder="如：科技马前卒"></div>
+    </div>
+    <div class="fields">
+      <div><label class="f">默认推送账号</label>
+        <select id="s_wx_acct">
+          <option value="1" ${(s.wx_default_account||'1')==='1'?'selected':''}>主号</option>
+          <option value="2" ${(s.wx_default_account||'1')==='2'?'selected':''}>副号（科技马前卒）</option>
+        </select></div>
+      <div><label class="f">副号封面 media_id（留空=每次自动生成）</label>
+        <input id="s_cover2" value="${esc(s.wx_cover_media_id2||'')}" placeholder="留空即可"></div>
+    </div>
+
+    <div class="fields">
+      <div><label class="f">「阅读原文」链接</label>
+        <select id="s_srcurl">
+          <option value="auto" ${(s.wx_source_url||'auto')==='auto'?'selected':''}>用素材原文链接</option>
+          <option value="none" ${(s.wx_source_url||'')==='none'?'selected':''}>留空</option>
+        </select></div>
+      <div><label class="f">封面 media_id（留空=每次自动生成）</label>
+        <input id="s_cover" value="${esc(s.wx_cover_media_id||'')}" placeholder="留空即可，会自动生成暖色封面"></div>
+    </div>
+    <div class="row">
+      <button class="b pri" id="btn_save_wx">保存微信配置</button>
+      <button class="b" id="btn_test_wx">测试连接</button>
+      <button class="b ghost" id="btn_ip_wx">检测出口 IP</button>
+      <span id="wx_info" class="muted"></span>
+    </div>
+    <div class="note">
+      <b>IP 白名单 —— 最容易卡住的地方：</b>公众号后台 → 设置与开发 → 基本配置 → IP白名单，
+      必须包含本机的<b>出口 IP</b>。先点「检测出口 IP」拿到当前值再加；
+      校园网/家庭宽带 IP 可能变化，变了会报 <code>40164</code>，重新加一次即可。<br>
+      另外：推送走的是<b>直连</b>（不走代理），因此白名单要填你的真实出口 IP，而不是代理节点 IP。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>合规提醒</h2>
+    <div class="note red">
+      抓取他人文章改写后发布，在著作权上属"洗稿"，与是否盈利无关；平台侧也有语义指纹比对，
+      头条对洗稿单次扣 40 信用分、两次封号。<br>
+      本工具的设计取向是<b>学结构、补事实、重写表达</b>，以及用公开政策信息做原创增量。
+      另外：配图必须用免费可商用图库或自制，「图片来源于网络侵删」这句话不能免责。
+    </div>
+  </div>`;
+  $('#btn_save_s').onclick = async ()=>{
+    await api.post('/api/settings', {
+      llm_base:$('#s_base').value.trim(), llm_key:$('#s_key').value.trim(),
+      llm_model:$('#s_model').value.trim(), collect_delay:$('#s_delay').value,
+      topics:$('#s_topics').value.trim()
+    });
+    toast('设置已保存'); $('#s_info').textContent='已保存';
+  };
+
+  /* ---- 微信配置 ---- */
+  $('#btn_save_wx').onclick = async ()=>{
+    try{
+      await api.post('/api/settings', {
+        wx_appid:$('#s_appid').value.trim(), wx_appsecret:$('#s_secret').value.trim(),
+        wx_author:$('#s_author').value.trim(), wx_source_url:$('#s_srcurl').value,
+        wx_cover_media_id:$('#s_cover').value.trim(),
+        wx_appid2:$('#s_appid2').value.trim(), wx_appsecret2:$('#s_secret2').value.trim(),
+        wx_author2:$('#s_author2').value.trim(),
+        wx_cover_media_id2:$('#s_cover2').value.trim(),
+        wx_default_account:$('#s_wx_acct').value
+      });
+      toast('微信配置已保存'); $('#wx_info').textContent='已保存';
+    }catch(e){ $('#wx_info').innerHTML='<span style="color:#96393a">'+esc(e.message)+'</span>'; }
+  };
+  $('#btn_test_wx').onclick = async ()=>{
+    $('#wx_info').textContent='测试中…';
+    try{
+      const r = await api.post('/api/wx/test', {account:$('#s_wx_acct').value});
+      if(r.error){ $('#wx_info').innerHTML='<span style="color:#96393a">'+esc(r.error)+(r.hint?' — '+esc(r.hint):'')+'</span>'; return; }
+      $('#wx_info').textContent='「'+(r.account||'')+'」连通 ✓  token '+r.token_prefix+' · 出口 IP '+(r.egress_ip||'?');
+    }catch(e){ $('#wx_info').innerHTML='<span style="color:#96393a">'+esc(e.message)+'</span>'; }
+  };
+  $('#btn_ip_wx').onclick = async ()=>{
+    $('#wx_info').textContent='检测中…';
+    try{
+      const r = await api.get('/api/wx/ip');
+      $('#wx_info').textContent='直连出口 IP：'+(r.direct||'检测失败')+'　（走代理出口：'+(r.proxied||'-')+'）';
+    }catch(e){ $('#wx_info').textContent='检测失败：'+e.message; }
+  };
+}
+
+/* ---------------- 渲染 ---------------- */
+async function render(){
+  renderNav();
+  const v = $('#view');
+  v.innerHTML = '<div class="empty">加载中…</div>';
+  try{
+    if(STATE.tab==='pool') await viewPool();
+    else if(STATE.tab==='template') await viewTemplate();
+    else if(STATE.tab==='compose') await viewCompose();
+    else if(STATE.tab==='drafts') await viewDrafts();
+    else if(STATE.tab==='settings') await viewSettings();
+  }catch(e){
+    v.innerHTML = `<div class="card"><div class="note red">加载失败：${esc(e.message)}</div></div>`;
+  }
+}
+
+(async function init(){
+  await refreshStats();
+  await render();
+  setInterval(refreshStats, 15000);
+})();
+</script>
+</body>
+</html>

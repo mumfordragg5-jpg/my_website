@@ -6,3 +6,14 @@ __pycache__/
 *$py.class
 .env
 
+# ---- writer-station 工作台：本地数据，绝不入库 ----
+# 素材库里有他人的文章正文与采集链接；data/ 下有 AppSecret 与 LLM Key
+writer-station/data/
+writer-station/exports/
+writer-station/preview*.html
+writer-station/report.txt
+writer-station/selftest.txt
+*.db
+*.db-journal
+wx_token.json
+.env
