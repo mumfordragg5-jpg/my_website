@@ -93,14 +93,29 @@ ERR_HINTS = {
 }
 
 
-def _http(url, data=None, method="GET", headers=None, timeout=30, opener=None):
+def _http(url, data=None, method="GET", headers=None, timeout=30, opener=None,
+          attempts=3):
+    """发请求。网络层的偶发中断会重试；HTTP 状态错误（HTTPError）直接抛出由调用方处理。
+
+    attempts 默认为 3：云端经 SOCKS5 隧道时偶发 "Remote end closed connection"，
+    不重试就会把明明能成的推送判成失败。
+    """
     h = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) WriterStation/1.0"}
     if headers:
         h.update(headers)
-    req = urllib.request.Request(url, data=data, headers=h, method=method)
-    op = opener or wx_opener()
-    r = op.open(req, timeout=timeout)
-    return r.read()
+    last = None
+    for i in range(max(1, int(attempts))):
+        req = urllib.request.Request(url, data=data, headers=h, method=method)
+        op = opener or wx_opener()
+        try:
+            return op.open(req, timeout=timeout).read()
+        except urllib.error.HTTPError:
+            raise
+        except Exception as e:                    # noqa: BLE001
+            last = e
+            if i < attempts - 1:
+                time.sleep(1.5 * (i + 1))
+    raise last
 
 
 def _api(url, data=None, method="GET", headers=None, timeout=30):
@@ -136,7 +151,7 @@ def detect_egress_ip(use_proxy=False):
     )
     for u in IP_SOURCES:
         try:
-            txt = _http(u, timeout=8, opener=op).decode("utf-8", "replace")
+            txt = _http(u, timeout=8, opener=op, attempts=1).decode("utf-8", "replace")
             m = re.search(r"\d{1,3}(?:\.\d{1,3}){3}", txt)
             if m:
                 return m.group(0)
@@ -156,7 +171,7 @@ def detect_ip_through_configured_proxy():
     )
     for u in IP_SOURCES:
         try:
-            txt = _http(u, timeout=10, opener=op).decode("utf-8", "replace")
+            txt = _http(u, timeout=10, opener=op, attempts=1).decode("utf-8", "replace")
             m = re.search(r"\d{1,3}(?:\.\d{1,3}){3}", txt)
             if m:
                 return m.group(0)

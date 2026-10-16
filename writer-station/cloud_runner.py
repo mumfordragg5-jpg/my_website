@@ -148,6 +148,25 @@ def do_diag(rep):
         raise
 
 
+def probe_wechat(rep):
+    """分别用「直连」和「经隧道」打一次微信 API。
+
+    为什么要专门探这个：
+      出口 IP 探测走的是国外的回显服务，在只允许国内流量的隧道上本来就取不到值，
+      **不能**用它判断隧道好坏。真正要确认的是"经过这条隧道能不能连上微信"。
+      这里用不需要 token 的 getcallbackip：能返回 JSON（哪怕是 errcode 41001）
+      就说明 HTTP 通了；抛异常就是真的通不了。
+    """
+    rep.head("0b. 微信连通性探针")
+    url = wxpush.API + "/getcallbackip"
+    for label, op in (("直连", wxpush.DIRECT), ("经隧道", wxpush.wx_opener())):
+        try:
+            raw = wxpush._http(url, timeout=20, opener=op).decode("utf-8", "replace")
+            rep.ok("微信 API（%s）可达 → %s" % (label, raw[:110].strip()))
+        except Exception as e:
+            rep.warn("微信 API（%s）不可达 → %s: %s" % (label, type(e).__name__, e))
+
+
 def do_harvest(topics, kw_per_topic, pages, delay, rep):
     """列表采集（搜狗搜索页）—— 只拿标题/摘要，这是素材主力"""
     rep.head("1. 采集素材")
@@ -297,6 +316,8 @@ def main():
     ap.add_argument("--board", dest="board", action="store_true")
     ap.add_argument("--no-board", dest="board", action="store_false")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--probe", action="store_true",
+                    help="只做诊断 + 微信连通性探针，不做任何写入")
     ap.set_defaults(harvest=True, push=True, board=True)
     a = ap.parse_args()
 
@@ -316,6 +337,13 @@ def main():
         return 1
 
     do_diag(rep)
+
+    if a.probe:
+        probe_wechat(rep)
+        rep.head("结果")
+        rep.info("--probe：只做诊断与连通性探针，未采集 / 未出稿 / 未推送。")
+        flush_summary(rep.summary_md("写作台 · 连通性探针", "_探针模式，无任何写入。_"))
+        return 0
 
     if a.dry_run:
         rep.head("结果")

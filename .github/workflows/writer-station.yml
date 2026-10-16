@@ -64,6 +64,11 @@ on:
         required: false
         type: boolean
         default: false
+      probe:
+        description: '只做微信连通性探针（分别测直连与经隧道），不采集不出稿'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -103,8 +108,19 @@ jobs:
             NEED_TUNNEL="false"
           fi
 
+          R="${{ github.event.inputs.probe }}";   [ -z "$R" ] && R="false"
+          if [ "$R" = "true" ]; then
+            FLAGS=" --probe"
+            PROXY="socks5h://127.0.0.1:1080"
+            NEED_TUNNEL="true"
+          fi
+
+          SKIP_COMMIT="false"
+          if [ "$D" = "true" ] || [ "$R" = "true" ]; then SKIP_COMMIT="true"; fi
+
           {
             echo "flags=$FLAGS"
+            echo "skip_commit=$SKIP_COMMIT"
             echo "count=$C"
             echo "account=$A"
             echo "cover=$V"
@@ -191,7 +207,7 @@ jobs:
 
       - name: 提交选题看板
         # 即使出稿/推送那步失败了也要提交 —— 看板本身可能已经重建好了
-        if: ${{ always() && steps.p.outputs.dry_run != 'true' }}
+        if: ${{ always() && steps.p.outputs.skip_commit != 'true' }}
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           TOKEN_DEFAULT: ${{ github.token }}
