@@ -147,7 +147,7 @@ function renderNav(){
   $('#nav').innerHTML = TABS.map(([k,l])=>
     `<button data-tab="${k}" class="${STATE.tab===k?'on':''}">${l}</button>`).join('');
   document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{
-    STATE.tab=b.dataset.tab; render();
+    STATE.tab=b.dataset.tab; location.hash = STATE.tab; render();
   });
 }
 
@@ -965,6 +965,8 @@ async function render(){
 }
 
 (async function init(){
+  const h = (location.hash || '').replace('#', '');
+  if(h && TABS.some(function(t){ return t[0] === h; })) STATE.tab = h;
   await refreshStats();
   await render();
   setInterval(refreshStats, 15000);
