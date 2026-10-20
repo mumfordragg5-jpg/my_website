@@ -64,6 +64,32 @@
             color: var(--text-secondary); margin-bottom: 28px; }
   .foot { margin-top: 40px; padding-top: 22px; border-top: 1px solid var(--border);
           font-size: 0.82rem; color: var(--text-muted); }
+
+  /* 本机工作台入口条 */
+  .toolbar-box { background: var(--bg-card); border: 1px solid var(--accent);
+                 border-radius: var(--radius); padding: 16px 18px; margin-bottom: 22px;
+                 box-shadow: var(--shadow-sm); }
+  .tb-main { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center;
+             justify-content: space-between; }
+  .tb-txt { font-size: 0.9rem; line-height: 1.7; color: var(--text-secondary); flex: 1 1 320px; }
+  .tb-txt b { color: var(--text-primary); }
+  .tb-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tb-btn { display: inline-block; font: inherit; font-size: 0.85rem; line-height: 1;
+            padding: 10px 16px; border-radius: 8px; cursor: pointer; text-decoration: none;
+            border: 1px solid var(--border); background: var(--bg-secondary);
+            color: var(--text-primary); transition: all .15s; }
+  .tb-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tb-btn.pri { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .tb-btn.pri:hover { opacity: .88; color: #fff; }
+  .tb-status { margin-top: 10px; font-size: 0.8rem; color: var(--text-muted); }
+  .tb-status.ok { color: #2f7d55; }
+  .tb-status.off { color: var(--text-muted); }
+  .tb-how { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border);
+            font-size: 0.84rem; color: var(--text-secondary); }
+  .tb-how ol { margin: 0 0 8px 18px; line-height: 1.9; }
+  .tb-how code { background: var(--bg-secondary); border: 1px solid var(--border);
+                 border-radius: 4px; padding: 1px 5px; font-size: 0.9em; }
+  .tb-note { margin: 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.7; }
   @media (max-width: 640px) {
     .desk-wrap { padding: 26px 16px 60px; }
     .board-card { padding: 20px 16px; }
@@ -99,6 +125,28 @@
     <div class="desk-meta">
       <span>数据更新：<b id="gen">—</b></span>
       <span id="privacy">只展示聚合后的结构规律与选题角度，不含任何原文标题与正文。</span>
+    </div>
+  </div>
+
+  <div class="toolbar-box">
+    <div class="tb-main">
+      <div class="tb-txt">
+        <b>本页是「看板」，不是工具。</b>
+        采集、补正文、改写、去 AI 味、推草稿箱，都在<b>本机的写作工作台</b>里，需要那台电脑上先启动服务。
+      </div>
+      <div class="tb-actions">
+        <a class="tb-btn pri" href="http://127.0.0.1:8765/#humanize" target="_blank" rel="noopener">打开本地工作台</a>
+        <button class="tb-btn" id="tbHow" type="button">怎么启动？</button>
+      </div>
+    </div>
+    <div class="tb-status" id="tbStatus">正在检测本机工作台…</div>
+    <div class="tb-how" id="tbHow2" hidden>
+      <ol>
+        <li>必须<b>在这台电脑上</b>打开（手机或别的电脑点上面的按钮无效，<code>127.0.0.1</code> 指向的是本机）。</li>
+        <li>双击 <code>my_website\writer-station\run.bat</code>，会启动本地服务并自动打开浏览器。</li>
+        <li>窗口别关；地址是 <code>http://127.0.0.1:8765/</code>，页签依次是：素材池 / 选题分析 / 改写 / 去 AI 味 / 草稿 / 设置。</li>
+      </ol>
+      <p class="tb-note">为什么不能直接放网上：工作台是带数据库的 Python 程序，静态站点（GitHub Pages）只能存文件、跑不了进程。而它要读本机的素材库、要填 API Key，也不适合公开。</p>
     </div>
   </div>
 
@@ -221,6 +269,36 @@ fetch('data/writing-desk.json', {cache: 'no-cache'})
       '<br>请在本机运行 <code>python writer-station/build_board.py</code> 生成 ' +
       '<code>data/writing-desk.json</code>。</p></div>';
   });
+
+/* ---- 本机工作台入口：状态探测 + 展开说明 ---- */
+(function(){
+  var st = document.getElementById('tbStatus');
+  var how = document.getElementById('tbHow2');
+  var btn = document.getElementById('tbHow');
+  if (btn) btn.addEventListener('click', function(){
+    how.hidden = !how.hidden;
+    btn.textContent = how.hidden ? '怎么启动？' : '收起';
+  });
+
+  function say(cls, txt){ st.className = 'tb-status ' + cls; st.textContent = txt; }
+
+  // 只做“尽力探测”：https 页面访问 127.0.0.1 在部分浏览器会被拦，
+  // 所以探测失败时不下“没启动”的结论，只给操作指引。
+  var done = false;
+  var timer = setTimeout(function(){ if (!done) say('off', '无法从网页直接探测本机服务（浏览器限制）。点上面的按钮试试，打不开就看「怎么启动」。'); }, 2500);
+
+  fetch('http://127.0.0.1:8765/api/stats', {mode: 'cors', cache: 'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      done = true; clearTimeout(timer);
+      say('ok', '已连上本机工作台：' + (j.articles || 0) + ' 条素材（含正文 ' +
+        (j.articles_with_body || 0) + ' 条）· ' + (j.drafts || 0) + ' 条草稿。可以直接点按钮进去。');
+    })
+    .catch(function(){
+      done = true; clearTimeout(timer);
+      say('off', '没连上本机服务。可能原因：① 服务没启动 → 双击 writer-station\\run.bat；② 在别的设备打开本页（127.0.0.1 只指本机）。');
+    });
+})();
 </script>
 <script src="js/main.js"></script>
 </body>

@@ -275,6 +275,36 @@ class Handler(BaseHTTPRequestHandler):
         pass  # 静音
 
     # ---- helpers ----
+    # 只对 /api/stats 放开跨域：线上看板（GitHub Pages）用它探测本机服务是否在跑。
+    # 其余接口一律不放开 —— 这个服务没有登录，放开等于把设置页（API Key）暴露给任意网页。
+    CORS_PATHS = ("/api/stats",)
+    CORS_ORIGINS = (
+        "https://mumfordragg5-jpg.github.io",
+        "http://127.0.0.1:8765",
+        "http://localhost:8765",
+    )
+
+    def _cors_origin(self):
+        if not urllib.parse.urlparse(self.path).path in self.CORS_PATHS:
+            return None
+        o = (self.headers.get("Origin") or "").rstrip("/")
+        return o if o in self.CORS_ORIGINS else None
+
+    def _cors_headers(self):
+        o = self._cors_origin()
+        if not o:
+            return
+        self.send_header("Access-Control-Allow-Origin", o)
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Vary", "Origin")
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self._cors_headers()
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def _send(self, code, body, ctype="application/json; charset=utf-8"):
         if isinstance(body, (dict, list)):
             body = json.dumps(body, ensure_ascii=False)
@@ -284,6 +314,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self._cors_headers()
         self.end_headers()
         try:
             self.wfile.write(body)
