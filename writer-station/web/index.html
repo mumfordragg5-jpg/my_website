@@ -82,6 +82,29 @@ pre{white-space:pre-wrap;word-break:break-word;font-family:inherit;font-size:13p
 .tpl-item:last-child{border-bottom:none}
 .rec{font-size:13px;line-height:1.8;padding-left:16px;position:relative;margin-bottom:6px}
 .rec:before{content:"→";position:absolute;left:0;color:var(--pri)}
+
+/* ---------- 去 AI 味 ---------- */
+.hz-top{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.ring{width:96px;height:96px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  position:relative;flex:0 0 auto}
+.ring:before{content:"";position:absolute;inset:8px;background:#fff;border-radius:50%}
+.ring .v{position:relative;text-align:center;line-height:1.15}
+.ring .v b{font-size:21px;display:block;font-weight:600}
+.ring .v span{font-size:10px;color:var(--tx3)}
+.dim{margin-bottom:9px}
+.dim .ln{display:flex;justify-content:space-between;font-size:12px;color:var(--tx2);margin-bottom:3px}
+.dim .ln b{color:var(--tx);font-weight:600}
+.bar{height:6px;border-radius:4px;background:#f0eee9;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:4px}
+.chip{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;background:var(--pri-bg);
+  color:var(--pri);margin:0 5px 5px 0;border:1px solid var(--pri-line);white-space:nowrap}
+.chip.ab{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
+.sent{border-left:3px solid var(--pri-line);padding:4px 0 4px 10px;margin-bottom:9px;font-size:13px;line-height:1.7}
+.sent .w{font-size:11px;color:var(--tx3);margin-top:2px}
+.passlog{font-size:12px;color:var(--tx2);font-family:ui-monospace,Menlo,Consolas,monospace;line-height:1.95;
+  white-space:pre-wrap}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--tx3);margin-top:8px}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
 </style>
 </head>
 <body>
@@ -117,7 +140,7 @@ const toast = (m,kind) => { const d=document.createElement('div');
 let STATE = { tab:'pool', topic:'', articles:[], drafts:[], cur:null, settings:{}, journal:{running:false,log:[]} };
 
 const TABS = [
-  ['pool','素材池'],['template','选题分析'],['compose','改写'],['drafts','草稿'],['settings','设置']
+  ['pool','素材池'],['template','选题分析'],['compose','改写'],['humanize','去 AI 味'],['drafts','草稿'],['settings','设置']
 ];
 
 function renderNav(){
@@ -160,6 +183,9 @@ async function viewPool(){
       <label style="font-size:13px;color:var(--tx2)"><input type="checkbox" id="c_body" style="width:auto"> 同时抓正文（慢，限量）</label>
       <button class="b pri" id="btn_collect">开始采集</button>
       <button class="b" id="btn_analyze">对已有素材做结构分析</button>
+      <span style="font-size:13px;color:var(--tx2)">补正文一次
+        <input id="c_body_max" type="number" value="3" min="1" max="20" style="width:64px;display:inline-block"> 条</span>
+      <button class="b" id="btn_body">补正文</button>
       <span id="jobpill"></span>
     </div>
     <div class="log hide" id="joblog" style="margin-top:14px"></div>
@@ -167,7 +193,7 @@ async function viewPool(){
 
   <div class="card">
     <h2>素材池 <span class="pill">${STATE.articles.length} 条</span></h2>
-    <p class="hint">带正文的素材才能生成改写。没正文的可以先做结构分析积累选题情报。</p>
+    <p class="hint">带正文的素材才能生成改写。没正文的可以先做结构分析积累选题情报；要改写就点行内「补正文」，或上面的「补正文」批量补几条。<b>补正文很容易被搜狗拦</b>，一次别超过 3~5 条，被拦时会自动冷却几分钟再试。</p>
     <div class="row" style="margin-bottom:12px">
       <select id="f_topic" style="width:auto" onchange="STATE.topic=this.value;render()">${topicOptions(STATE.topic)}</select>
     </div>
@@ -182,6 +208,7 @@ async function viewPool(){
         <td>${an?`<span class="tag p">${esc(an.title_pattern||'')}</span><span class="tag">${esc(an.topic_type||'')}</span>`:'<span class="muted">未分析</span>'}</td>
         <td>
           <button class="b" onclick="openArticle(${a.id})">查看</button>
+          ${a.body_len?'':`<button class="b ghost" onclick="fillBody(${a.id})">补正文</button>`}
           <button class="b ghost" onclick="goCompose(${a.id})" ${a.body_len?'':'disabled'}>改写</button>
         </td></tr>`;}).join('')}</tbody></table>`
     :`<div class="empty">还没有素材。上面填关键词，点「开始采集」。</div>`}
@@ -208,6 +235,20 @@ function bindPool(){
     try{ await api.post('/api/analyze',{topic:null}); toast('分析任务已开始'); pollJob(); }
     catch(e){ toast('启动失败：'+e.message,'err'); }
   };
+  const bb = $('#btn_body');
+  if(bb) bb.onclick = async ()=>{
+    try{
+      await api.post('/api/fetch_body',{ max:+$('#c_body_max').value, topic:STATE.topic||null });
+      toast('补正文任务已开始，请看日志'); pollJob();
+    }catch(e){ toast('启动失败：'+e.message,'err'); }
+  };
+}
+
+async function fillBody(id){
+  try{
+    await api.post('/api/fetch_body',{ article_id:id });
+    toast('正在补这一篇，请看日志'); pollJob();
+  }catch(e){ toast('失败：'+e.message,'err'); }
 }
 
 let _pollT=null;
@@ -418,6 +459,290 @@ async function renderResult(){
   $('#pane_out').value = r.body || '';
 }
 
+/* ---------------- 去 AI 味 ---------------- */
+
+function scoreColor(s){ return s>=62?'#c0504d':(s>=45?'#b5813c':(s>=28?'#2f6fa8':'#2f7d55')); }
+function _put(sel, html){ const el = $(sel); if(el) el.innerHTML = html; }
+
+function ringHtml(score,label){
+  const s = Math.max(0, Math.min(100, Number(score)||0));
+  const c = scoreColor(s), deg = Math.max(3, s*3.6);
+  return '<div class="ring" style="background:conic-gradient('+c+' '+deg+'deg,#eee8e2 '+deg+'deg)">'+
+    '<div class="v"><b style="color:'+c+'">'+s.toFixed(0)+'</b><span>'+esc(label)+'</span></div></div>';
+}
+
+function reportHtml(rep){
+  if(!rep || !rep.dims || !rep.dims.length){
+    return '<div class="empty">贴好稿子，点上面的「先体检」。</div>';
+  }
+  const c = scoreColor(rep.score);
+  const dims = rep.dims.map(function(d){
+    return '<div class="dim"><div class="ln"><span>'+esc(d.name)+'</span><b>'+d.score.toFixed(0)+'</b></div>'+
+      '<div class="bar"><i style="width:'+Math.max(2,d.score)+'%;background:'+scoreColor(d.score)+'"></i></div>'+
+      '<div class="muted" style="font-size:11px;margin-top:2px">'+esc(d.detail)+'</div></div>';
+  }).join('');
+  const cl = (rep.hits.cliche||[]).map(function(x){ return '<span class="chip">'+esc(x.label)+' ×'+x.n+'</span>'; }).join('');
+  const ab = (rep.hits.abstract||[]).map(function(x){ return '<span class="chip ab">'+esc(x.word)+' ×'+x.n+'</span>'; }).join('');
+  const hot = (rep.hits.sentences||[]).map(function(s){
+    return '<div class="sent">'+esc(s.text)+'<div class="w">风险 '+s.risk+' · '+esc((s.why||[]).join('；'))+'</div></div>';
+  }).join('');
+  const adv = (rep.advice||[]).map(function(a){ return '<div class="rec">'+esc(a)+'</div>'; }).join('');
+  return '<div class="hz-top">'+
+      ringHtml(rep.score,'AI 味')+
+      '<div style="flex:1;min-width:200px">'+
+        '<div style="font-size:15px;font-weight:600;color:'+c+';margin-bottom:4px">'+
+          esc(rep.level)+' · 像人度 '+(rep.human==null?'—':rep.human.toFixed(0))+'</div>'+
+        '<div class="muted" style="font-size:12px;line-height:1.7">'+esc(rep.level_desc||'')+'</div>'+
+        '<div class="muted" style="font-size:11px;margin-top:4px">'+rep.chars+' 字 · '+
+          (rep.stats.sentences||0)+' 句 · '+(rep.stats.paragraphs||0)+' 段 · 句长变异 '+
+          (rep.stats.cv||0)+' · 短句占 '+Math.round((rep.stats.short_ratio||0)*100)+'%</div>'+
+      '</div></div>'+
+    '<div class="legend">'+
+      '<span><i style="background:#2f7d55"></i>0-28 很低</span>'+
+      '<span><i style="background:#2f6fa8"></i>28-45 偏低</span>'+
+      '<span><i style="background:#b5813c"></i>45-62 中等</span>'+
+      '<span><i style="background:#c0504d"></i>62-78 偏高</span>'+
+      '<span><i style="background:#8f3a38"></i>78+ 很高</span></div>'+
+    '<div class="sec">八个维度</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px">'+dims+'</div>'+
+    (cl?'<div class="sec">命中的套话</div><div>'+cl+'</div>':'')+
+    (ab?'<div class="sec">抽象/官腔词</div><div>'+ab+'</div>':'')+
+    (adv?'<div class="sec">怎么改</div>'+adv:'')+
+    (hot?'<div class="sec">最像机器人的句子（按风险排序）</div>'+hot:'')+
+    '<div class="note" style="margin:14px 0 0">'+esc(rep.disclaimer||'')+'</div>';
+}
+
+async function viewHumanize(){
+  const v = $('#view');
+  let drafts = [];
+  try{ drafts = await api.get('/api/drafts'); }catch(e){ drafts = []; }
+
+  v.innerHTML = `
+  <div class="card">
+    <h2>去 AI 味</h2>
+    <p class="hint">
+      把你<b>自己写好的稿子</b>贴进来。先体检（本地规则，不联网、不上传），看清哪几句话像机器写的；
+      再按「轻度 / 中度 / 重度」重写，<b>多轮循环</b>直到分数压到目标线以下。
+      事实、数字、观点立场不会动，只改表达。
+    </p>
+    <div class="note">
+      这里的分数是<b>本地启发式估算</b>，看的维度和 AI 检测器一致（套话密度、句式均匀、抽象名词、缺具体细节），
+      但<b>不等于腾讯朱雀的官方判定</b>。想知道真实结果，把改完的稿子粘到
+      <a href="https://matrix.tencent.com/ai-detect/" target="_blank">朱雀 AI 检测</a> 再测一次。
+    </div>
+
+    <div class="fields">
+      <div><label class="f">从已有草稿载入</label>
+        <select id="h_load">
+          <option value="0">— 不载入，直接粘贴 —</option>
+          ${drafts.map(d=>`<option value="${d.id}">#${d.id} ${esc((d.title||'').slice(0,26))}</option>`).join('')}
+        </select></div>
+      <div><label class="f">标题（原样保留，不改）</label><input id="h_title" placeholder="文章标题"></div>
+      <div><label class="f">归入话题</label><select id="h_topic">${topicOptions('')}</select></div>
+    </div>
+
+    <label class="f">正文（粘贴你的稿子）</label>
+    <textarea id="h_text" style="height:300px;line-height:1.85" placeholder="把写好的文章正文贴在这里…"></textarea>
+
+    <div class="fields" style="margin-top:14px">
+      <div><label class="f">改写强度</label>
+        <select id="h_strength">
+          <option value="light">轻度 —— 只删套话、调句式</option>
+          <option value="medium" selected>中度 —— 重写句子、打散节奏</option>
+          <option value="heavy">重度 —— 重组表达（事实不变）</option>
+        </select></div>
+      <div><label class="f">目标分数（越低越激进）</label><input id="h_target" type="number" value="30" min="10" max="60"></div>
+      <div><label class="f">最多几轮</label><input id="h_passes" type="number" value="3" min="1" max="5"></div>
+    </div>
+    <div class="row">
+      <button class="b pri" id="btn_h_run">开始降 AI 味</button>
+      <button class="b" id="btn_h_scan">先体检</button>
+      <label style="font-size:13px;color:var(--tx2)"><input type="checkbox" id="h_llm" style="width:auto" checked> 用 LLM 重写（需在设置里配 API）</label>
+      <span id="h_pill" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>体检报告</h2>
+    <div id="h_rep"><div class="empty">贴好稿子，点上面的「先体检」。</div></div>
+  </div>
+
+  <div class="card hide" id="h_result">
+    <h2>改写结果</h2>
+    <div class="hz-top" style="margin-bottom:10px">
+      <div id="h_pb"></div>
+      <div style="font-size:18px;color:var(--tx3)">→</div>
+      <div id="h_pa"></div>
+      <div class="passlog" id="h_passlog" style="flex:1;min-width:220px"></div>
+    </div>
+    <div id="h_warn"></div>
+    <div class="note">
+      <b>最后一步只能你自己来：</b>改完往正文里补 1~2 处<b>只有你知道的具体细节</b>——
+      哪天去的、谁说的、花了多少钱、当时什么反应。<b>这一步比任何改写都更能压掉机器味</b>，
+      因为编不出来的细节，检测器也编不出来。
+    </div>
+    <label class="f">正文（可继续手改）</label>
+    <textarea id="h_out" style="height:420px;line-height:1.85"></textarea>
+    <div class="row" style="margin-top:12px">
+      <button class="b pri" id="btn_h_save">保存为草稿</button>
+      <button class="b" id="btn_h_copy">复制正文</button>
+      <button class="b ghost" id="btn_h_rescan">对当前文本再体检</button>
+      <span id="h_info" class="muted"></span>
+    </div>
+    <div id="h_rescan_rep" style="margin-top:14px"></div>
+  </div>`;
+
+  bindHumanize();
+}
+
+async function goHumanize(draftId){
+  STATE.hzLoadId = draftId || 0;
+  STATE.tab = 'humanize';
+  await render();
+  try{
+    const el = $('#h_load');
+    if(el && draftId){
+      el.value = String(draftId);
+      const d = await api.get('/api/drafts/'+draftId);
+      $('#h_text').value = d.body || '';
+      $('#h_title').value = d.title || '';
+      if(d.topic) STATE.hzTopic = d.topic;
+      toast('已载入草稿 #'+draftId);
+    }
+  }catch(e){ toast('载入失败：'+e.message,'err'); }
+}
+
+function hzParams(){
+  return {
+    text: $('#h_text').value,
+    title: $('#h_title').value.trim(),
+    topic: STATE.hzTopic || '',
+    strength: $('#h_strength').value,
+    target: +$('#h_target').value || 30,
+    max_passes: +$('#h_passes').value || 3,
+    use_llm: $('#h_llm').checked
+  };
+}
+
+function bindHumanize(){
+  const load = $('#h_load');
+  if(load) load.onchange = async ()=>{
+    const id = +load.value;
+    if(!id) return;
+    try{
+      const d = await api.get('/api/drafts/'+id);
+      $('#h_text').value = d.body || '';
+      $('#h_title').value = d.title || '';
+      if(d.topic) STATE.hzTopic = d.topic;
+      toast('已载入草稿 #'+id);
+    }catch(e){ toast('载入失败：'+e.message,'err'); }
+  };
+
+  const sel = $('#h_topic');
+  if(sel) sel.onchange = ()=>{ STATE.hzTopic = sel.value; };
+
+  const bs = $('#btn_h_scan');
+  if(bs) bs.onclick = async ()=>{
+    const text = $('#h_text').value;
+    if(text.trim().length < 60) return toast('正文太短，先贴完整的稿子','err');
+    bs.disabled = true; bs.textContent = '检测中…';
+    try{
+      const rep = await api.post('/api/humanize/scan', {text: text});
+      $('#h_rep').innerHTML = reportHtml(rep);
+      toast('AI 味 '+rep.score.toFixed(0)+'（'+rep.level+'）');
+    }catch(e){ toast('检测失败：'+e.message,'err'); }
+    bs.disabled = false; bs.textContent = '先体检';
+  };
+
+  const br = $('#btn_h_run');
+  if(br) br.onclick = async ()=>{
+    const p = hzParams();
+    if(p.text.trim().length < 60) return toast('正文太短，先贴完整的稿子','err');
+    br.disabled = true; br.textContent = '改写中…';
+    $('#h_pill').innerHTML = '<span class="pill run">运行中…</span>';
+    try{
+      const r = await api.post('/api/humanize/rewrite', p);
+      if(r.error){ toast(r.error,'err'); br.disabled=false; br.textContent='开始降 AI 味'; return; }
+      STATE.hzBefore = r.before;
+      $('#h_rep').innerHTML = reportHtml(r.before);
+      $('#h_result').classList.remove('hide');
+      $('#h_pb').innerHTML = ringHtml(r.before.score,'改写前');
+      $('#h_pa').innerHTML = '';
+      $('#h_passlog').textContent = '第 1 轮进行中…';
+      $('#h_out').value = '';
+      $('#h_warn').innerHTML = '';
+      $('#h_rescan_rep').innerHTML = '';
+      pollHumanize(r.id);
+    }catch(e){ toast('启动失败：'+e.message,'err'); br.disabled=false; br.textContent='开始降 AI 味'; }
+  };
+
+  const bsave = $('#btn_h_save');
+  if(bsave) bsave.onclick = async ()=>{
+    if(!STATE.hz || STATE.hz.status!=='done') return toast('还没跑完','err');
+    try{
+      const r = await api.post('/api/humanize/'+STATE.hz.id+'/draft', {out_body: $('#h_out').value});
+      toast('已存为草稿 #'+r.draft_id);
+      $('#h_info').textContent = '已生成草稿 #'+r.draft_id+'，去「草稿」页可编辑/推送';
+    }catch(e){ toast('保存失败：'+e.message,'err'); }
+  };
+
+  const bcopy = $('#btn_h_copy');
+  if(bcopy) bcopy.onclick = async ()=>{
+    try{ await navigator.clipboard.writeText($('#h_out').value); toast('已复制'); }
+    catch(e){ toast('浏览器未授权剪贴板','err'); }
+  };
+
+  const brs = $('#btn_h_rescan');
+  if(brs) brs.onclick = async ()=>{
+    const text = $('#h_out').value;
+    if(text.trim().length < 60) return toast('正文太短','err');
+    brs.disabled = true;
+    try{
+      const rep = await api.post('/api/humanize/scan', {text: text});
+      $('#h_rescan_rep').innerHTML = '<div class="sec">当前文本体检</div>' + reportHtml(rep);
+    }catch(e){ toast('检测失败：'+e.message,'err'); }
+    brs.disabled = false;
+  };
+}
+
+let _hzT = null;
+function pollHumanize(id){
+  clearInterval(_hzT);
+  const tick = async ()=>{
+    let h;
+    try{ h = await api.get('/api/humanize/'+id); }
+    catch(e){ clearInterval(_hzT); return; }
+    STATE.hz = h;
+    const out = $('#h_out');
+    if(out && document.activeElement !== out) out.value = h.out_body || '';
+    const pa = $('#h_pa');
+    if(pa && h.score_after) pa.innerHTML = ringHtml(h.score_after, h.status==='done'?'改写后':'当前');
+    const ps = (h.passes||[]).map(function(p){
+      return '第 '+p.pass+' 轮 → AI 味 '+Number(p.score).toFixed(1)+'（'+p.chars+' 字）';
+    }).join('\n');
+    const pl = $('#h_passlog');
+    if(pl) pl.textContent = ps || (h.status==='running' ? '正在改写…' : '');
+
+    if(h.status === 'done'){
+      clearInterval(_hzT);
+      const br = $('#btn_h_run');
+      if(br){ br.disabled=false; br.textContent='开始降 AI 味'; }
+      _put('#h_pill', '<span class="pill done">完成</span>');
+      if(h.scan_after && h.scan_after.dims) _put('#h_rescan_rep', '<div class="sec">改后体检</div>' + reportHtml(h.scan_after));
+      _put('#h_warn', h.error ? '<div class="note red">'+esc(h.error)+'</div>' : '');
+      toast('完成：'+Number(h.score_before).toFixed(0)+' → '+Number(h.score_after).toFixed(0));
+    }else if(h.status === 'error'){
+      clearInterval(_hzT);
+      const br = $('#btn_h_run');
+      if(br){ br.disabled=false; br.textContent='开始降 AI 味'; }
+      _put('#h_pill', '<span class="pill" style="background:#fbe9e7;color:#96393a">失败</span>');
+      _put('#h_warn', '<div class="note red">'+esc(h.error||'未知错误')+'</div>');
+    }
+  };
+  tick();
+  _hzT = setInterval(tick, 2000);
+}
+
 /* ---------------- 草稿 ---------------- */
 async function viewDrafts(){
   const v = $('#view');
@@ -427,7 +752,7 @@ async function viewDrafts(){
     <h2>草稿 <span class="pill">${STATE.drafts.length} 篇</span></h2>
     <p class="hint">草稿生成后可以继续编辑，导出为公众号可粘贴的 HTML。推送环节需要公众号接口权限，见「设置」页说明。</p>
     ${STATE.drafts.length?`
-    <table><thead><tr><th style="width:34%">标题（已锁定）</th><th>话题</th><th>状态</th><th>字数</th><th>更新时间</th><th style="width:270px"></th></tr></thead>
+    <table><thead><tr><th style="width:30%">标题（已锁定）</th><th>话题</th><th>状态</th><th>字数</th><th>更新时间</th><th style="width:380px"></th></tr></thead>
     <tbody>${STATE.drafts.map(d=>`<tr>
       <td>${esc(d.title)}</td>
       <td><span class="tag">${esc(d.topic||'—')}</span></td>
@@ -437,6 +762,7 @@ async function viewDrafts(){
       <td>
         <button class="b" onclick="openDraft(${d.id})">打开</button>
         <button class="b pri" onclick="pushDraft(${d.id})">推送草稿箱</button>
+        <button class="b ghost" onclick="goHumanize(${d.id})">去 AI 味</button>
         <button class="b ghost" onclick="window.open('/api/drafts/${d.id}/preview','_blank')">预览</button>
         <button class="b" onclick="delDraft(${d.id})">删除</button>
       </td></tr>`).join('')}</tbody></table>`
@@ -459,6 +785,7 @@ async function openDraft(id){
       <select id="m_acct" style="width:auto;padding:4px 8px"><option value="1">主号</option><option value="2">副号（科技马前卒）</option></select>
       <button class="b" onclick="pushDraft(${id}, document.getElementById('m_acct').value)">推送到草稿箱</button>
       <button class="b ghost" onclick="exportDraft(${id})">复制公众号 HTML</button>
+      <button class="b ghost" onclick="this.closest('div[style*=fixed]').remove();goHumanize(${id})">去 AI 味</button>
       <button class="b ghost" onclick="window.open('/api/drafts/${id}/preview','_blank')">预览</button>
       <button class="b" onclick="this.closest('div[style*=fixed]').remove()">关闭</button>
     </div></div>`;
@@ -629,6 +956,7 @@ async function render(){
     if(STATE.tab==='pool') await viewPool();
     else if(STATE.tab==='template') await viewTemplate();
     else if(STATE.tab==='compose') await viewCompose();
+    else if(STATE.tab==='humanize') await viewHumanize();
     else if(STATE.tab==='drafts') await viewDrafts();
     else if(STATE.tab==='settings') await viewSettings();
   }catch(e){

@@ -96,8 +96,8 @@ def build_prompt(title, topic, template=None, skeleton=None, hooks=None,
     return "\n".join(parts)
 
 
-def call_llm(prompt, settings, timeout=120):
-    """调用 OpenAI 兼容接口"""
+def call_llm(prompt, settings, timeout=120, system=None, temperature=0.75):
+    """调用 OpenAI 兼容接口（system 可传入自定义角色，供「去 AI 味」等场景复用）"""
     base = (settings.get("llm_base") or "").rstrip("/")
     key = settings.get("llm_key") or ""
     model = settings.get("llm_model") or "gpt-4o-mini"
@@ -107,10 +107,10 @@ def call_llm(prompt, settings, timeout=120):
     payload = {
         "model": model,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system or SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
         ],
-        "temperature": 0.75,
+        "temperature": temperature,
     }
     req = urllib.request.Request(
         base + "/chat/completions",

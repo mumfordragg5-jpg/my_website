@@ -95,9 +95,10 @@ def mode_list(args):
     log("   素材库：%s" % db.stats())
 
 
-def mode_body(args):
+def mode_body(args, todo=None):
     c = collector.Collector(args.delay)
-    todo = db.articles_need_body(limit=args.max, topic=args.topic or None)
+    if todo is None:
+        todo = db.articles_need_body(limit=args.max, topic=args.topic or None)
     log("★ 待补正文 %d 条" % len(todo))
     ok, consec = 0, 0
     for a in todo:

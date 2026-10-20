@@ -67,10 +67,31 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT
 );
 
+-- 去 AI 味任务：原文、改写结果、前后体检报告
+CREATE TABLE IF NOT EXISTS humanize (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    title        TEXT DEFAULT '',
+    topic        TEXT DEFAULT '',
+    src_body     TEXT DEFAULT '',
+    out_body     TEXT DEFAULT '',
+    score_before REAL DEFAULT 0,
+    score_after  REAL DEFAULT 0,
+    scan_before  TEXT DEFAULT '',
+    scan_after   TEXT DEFAULT '',
+    passes       TEXT DEFAULT '',
+    engine       TEXT DEFAULT '',
+    strength     TEXT DEFAULT 'medium',
+    status       TEXT DEFAULT 'running',   -- running / done / error
+    error        TEXT DEFAULT '',
+    created_at   TEXT DEFAULT '',
+    updated_at   TEXT DEFAULT ''
+);
+
 CREATE INDEX IF NOT EXISTS idx_articles_topic  ON articles(topic);
 CREATE INDEX IF NOT EXISTS idx_articles_status ON articles(status);
 CREATE INDEX IF NOT EXISTS idx_analyses_art    ON analyses(article_id);
 CREATE INDEX IF NOT EXISTS idx_drafts_art      ON drafts(article_id);
+CREATE INDEX IF NOT EXISTS idx_humanize_status ON humanize(status);
 """
 
 
@@ -383,6 +404,114 @@ def get_draft(did):
 def delete_draft(did):
     conn = connect()
     conn.execute("DELETE FROM drafts WHERE id = ?", (did,))
+    conn.commit()
+    conn.close()
+
+
+# ---------------- humanize（去 AI 味）----------------
+
+def create_humanize(data):
+    init()
+    conn = connect()
+    t = now()
+    cur = conn.execute(
+        """INSERT INTO humanize
+           (title, topic, src_body, out_body, score_before, score_after,
+            scan_before, scan_after, passes, engine, strength, status, error,
+            created_at, updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (
+            data.get("title", ""),
+            data.get("topic", ""),
+            data.get("src_body", ""),
+            data.get("out_body", ""),
+            float(data.get("score_before") or 0),
+            float(data.get("score_after") or 0),
+            _as_json(data.get("scan_before", "")),
+            _as_json(data.get("scan_after", "")),
+            _as_json(data.get("passes", "")),
+            data.get("engine", ""),
+            data.get("strength", "medium"),
+            data.get("status", "running"),
+            data.get("error", ""),
+            t, t,
+        ),
+    )
+    conn.commit()
+    hid = cur.lastrowid
+    conn.close()
+    return hid
+
+
+def _as_json(v):
+    """dict/list 转 JSON 字符串；其余原样返回（sqlite 只认标量）"""
+    if isinstance(v, (dict, list)):
+        return json.dumps(v, ensure_ascii=False)
+    return v if v is not None else ""
+
+
+def update_humanize(hid, **fields):
+    if not fields:
+        return
+    conn = connect()
+    keys, args = [], []
+    for k, v in fields.items():
+        if isinstance(v, (list, dict)):
+            v = json.dumps(v, ensure_ascii=False)
+        keys.append("%s = ?" % k)
+        args.append(v)
+    keys.append("updated_at = ?")
+    args.append(now())
+    args.append(hid)
+    conn.execute("UPDATE humanize SET %s WHERE id = ?" % ", ".join(keys), args)
+    conn.commit()
+    conn.close()
+
+
+def _parse_humanize(d):
+    for k in ("scan_before", "scan_after"):
+        raw = d.get(k) or ""
+        if raw.strip().startswith("{"):
+            try:
+                d[k] = json.loads(raw)
+                continue
+            except Exception:
+                pass
+        d[k] = {}
+    raw = d.get("passes") or ""
+    if raw.strip().startswith("["):
+        try:
+            d["passes"] = json.loads(raw)
+        except Exception:
+            d["passes"] = []
+    else:
+        d["passes"] = []
+    return d
+
+
+def get_humanize(hid):
+    conn = connect()
+    r = conn.execute("SELECT * FROM humanize WHERE id = ?", (hid,)).fetchone()
+    conn.close()
+    return _parse_humanize(dict(r)) if r else None
+
+
+def list_humanize(limit=50, light=True):
+    conn = connect()
+    if light:
+        sql = ("SELECT id, title, topic, score_before, score_after, engine, strength,"
+               " status, error, created_at, updated_at,"
+               " LENGTH(out_body) AS out_len FROM humanize ORDER BY id DESC LIMIT ?")
+    else:
+        sql = "SELECT * FROM humanize ORDER BY id DESC LIMIT ?"
+    rows = [dict(r) for r in conn.execute(sql, (limit,))]
+    conn.close()
+    return rows
+
+
+def delete_humanize(hid):
+    conn = connect()
+    conn.execute("DELETE FROM humanize WHERE id = ?", (hid,))
     conn.commit()
     conn.close()
 

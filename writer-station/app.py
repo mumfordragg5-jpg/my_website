@@ -24,6 +24,8 @@ import fetcher
 import rewriter
 import exporter
 import wxpush
+import harvest
+import humanizer
 
 WEB_DIR = os.path.join(HERE, "web")
 EXPORT_DIR = os.path.join(HERE, "exports")
@@ -76,6 +78,54 @@ def do_analyze_all(params):
     return {"analyzed": n}
 
 
+def do_fetch_bodies(params):
+    """补正文：把列表模式下攒下来的素材逐条回填正文。
+
+    搜狗跳转页限流极严，所以默认一次只补 3 条、间隔 30 秒，连续 3 次被拦就停。
+    传 article_id 时只补那一篇（素材池行内按钮用）。
+    """
+    aid = int(params.get("article_id") or 0)
+    todo = None
+    if aid:
+        a = db.get_article(aid)
+        if not a:
+            raise ValueError("素材不存在")
+        if not a.get("sogou_link") and not a.get("real_url"):
+            raise ValueError("这条没有搜狗/原站链接，补不了正文")
+        if a.get("sogou_link"):
+            todo = [a]
+        else:
+            # 已有原站链接，直接抓正文
+            art = collector.Collector(0).article(a["real_url"])
+            if not art.get("body"):
+                raise ValueError("原站没抓到正文（可能已删除或需登录）")
+            db.update_article_body(aid, art["body"], a["real_url"],
+                                   art.get("real_account", ""), art.get("real_title", ""))
+            job_log("正文 OK：%s（%d 字）" % ((a.get("title") or "")[:26], art["body_len"]))
+            return {"ok": 1, "total": 1}
+
+    ns = type("HarvestArgs", (), {})()
+    ns.max = int(params.get("max") or 3)
+    ns.topic = (params.get("topic") or "").strip()
+    ns.delay = float(params.get("delay") or 30)
+
+    orig = harvest.log
+
+    def both(msg):
+        try:
+            orig(msg)          # 仍然写 data/harvest.log，留档
+        except Exception:
+            pass
+        job_log(msg)
+
+    harvest.log = both
+    try:
+        harvest.mode_body(ns, todo)
+    finally:
+        harvest.log = orig
+    return {"ok": 1}
+
+
 def do_generate(params):
     aid = int(params["article_id"])
     topic = params.get("topic")
@@ -115,6 +165,70 @@ def do_export(did):
     return {"snippet": frag, "page_path": fp}
 
 
+def _run_humanize(hid, params):
+    """后台跑「去 AI 味」多轮重写，过程写回 humanize 表，前端轮询即可看到进度。"""
+    passes = []
+    try:
+        db.update_humanize(hid, status="running")
+        r = humanizer.rewrite(
+            params["text"],
+            title=params.get("title") or "",
+            strength=params.get("strength") or "medium",
+            target=float(params.get("target") or 30),
+            max_passes=int(params.get("max_passes") or 3),
+            use_llm=bool(params.get("use_llm", True)),
+            on_pass=lambda row: (passes.append(row),
+                                 db.update_humanize(hid, passes=list(passes),
+                                                    score_after=row["score"],
+                                                    out_body=row.get("text") or "")),
+        )
+        db.update_humanize(
+            hid,
+            out_body=r["out"],
+            score_before=r["before"]["score"],
+            score_after=r["after"]["score"],
+            scan_before=r["before"],
+            scan_after=r["after"],
+            passes=r["passes"],
+            engine=r["engine"],
+            status="done",
+            error="；".join(r.get("warnings") or []),
+        )
+        job_log("去 AI 味完成：#%s  %.1f → %.1f（%s，%d 轮）"
+                % (hid, r["before"]["score"], r["after"]["score"],
+                   r["engine"], len(r["passes"])))
+    except Exception as e:
+        traceback.print_exc()
+        db.update_humanize(hid, status="error", error=str(e))
+        job_log("去 AI 味失败：#%s %s" % (hid, e))
+
+
+def do_humanize_draft(params):
+    """把去 AI 味的结果存成草稿，后续可编辑 / 推送草稿箱"""
+    hid = int(params.get("id") or 0)
+    h = db.get_humanize(hid)
+    if not h:
+        raise ValueError("任务不存在")
+    # 界面里手改过的正文优先（否则用户改了又被库里旧版本覆盖）
+    body = (params.get("out_body") or "").strip() or (h.get("out_body") or "")
+    if len(body) < 60:
+        raise ValueError("结果为空，先跑一次改写")
+    if params.get("out_body"):
+        db.update_humanize(hid, out_body=body)
+    did = db.create_draft({
+        "article_id": None,
+        "topic": h.get("topic") or "",
+        "title": h.get("title") or "（未命名）",
+        "body": body,
+        "outline": [],
+        "increments": [],
+        "source_urls": [],
+        "engine": "humanize:%s" % (h.get("engine") or ""),
+        "status": "draft",
+    })
+    return {"draft_id": did}
+
+
 def do_push_draft(params):
     """把草稿推进指定公众号的草稿箱（account=1 主号 / 2 副号）"""
     did = int(params.get("draft_id") or 0)
@@ -123,7 +237,6 @@ def do_push_draft(params):
     d = db.get_draft(did)
     if not d:
         raise ValueError("草稿不存在")
-
     s = db.get_settings()
     which = "2" if str(params.get("account") or "1") == "2" else "1"
     acc = wxpush.resolve_account(which)
@@ -268,6 +381,15 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(200, exporter.build_page(
                         d["title"], d["body"], "本地预览 · " + (d.get("topic") or "")),
                         "text/html; charset=utf-8")
+            if p == "/api/humanize":
+                return self._send(200, db.list_humanize())
+            if p.startswith("/api/humanize/"):
+                parts = p.strip("/").split("/")
+                hid = int(parts[2])
+                h = db.get_humanize(hid)
+                if not h:
+                    return self._send(404, {"error": "not found"})
+                return self._send(200, h)
             if p == "/api/wx/status":
                 s = db.get_settings()
                 accounts = wxpush.account_status()
@@ -320,6 +442,15 @@ class Handler(BaseHTTPRequestHandler):
                 t.start()
                 return self._send(200, {"started": True})
 
+            if p == "/api/fetch_body":
+                if _job["running"]:
+                    return self._send(409, {"error": "已有任务在运行"})
+                with _job_lock:
+                    _job.update(running=True, kind="body", log=[])
+                t = threading.Thread(target=self._run_bg, args=(do_fetch_bodies, params), daemon=True)
+                t.start()
+                return self._send(200, {"started": True})
+
             if p == "/api/generate":
                 return self._send(200, do_generate(params))
 
@@ -328,6 +459,35 @@ class Handler(BaseHTTPRequestHandler):
                 if isinstance(kws, str):
                     kws = [k.strip() for k in kws.replace("，", ",").split(",") if k.strip()]
                 return self._send(200, {"items": fetcher.gather_increments(kws, int(params.get("limit") or 4))})
+
+            if p == "/api/humanize/scan":
+                return self._send(200, humanizer.scan(params.get("text") or ""))
+
+            if p == "/api/humanize/rewrite":
+                text = (params.get("text") or "").strip()
+                rep = humanizer.scan(text)
+                if rep["chars"] < 60:
+                    return self._send(200, {"error": "正文太短（少于 60 字），先贴完整的稿子",
+                                            "before": rep})
+                hid = db.create_humanize({
+                    "title": params.get("title") or "",
+                    "topic": params.get("topic") or "",
+                    "src_body": text,
+                    "score_before": rep["score"],
+                    "scan_before": rep,
+                    "strength": params.get("strength") or "medium",
+                    "status": "running",
+                })
+                t = threading.Thread(target=_run_humanize, args=(hid, params), daemon=True)
+                t.start()
+                return self._send(200, {"id": hid, "before": rep})
+
+            if p.startswith("/api/humanize/"):
+                parts = p.strip("/").split("/")
+                hid = int(parts[2])
+                if len(parts) == 4 and parts[3] == "draft":
+                    return self._send(200, do_humanize_draft({
+                        "id": hid, "out_body": params.get("out_body") or ""}))
 
             if p.startswith("/api/drafts/"):
                 parts = p.strip("/").split("/")
@@ -387,6 +547,9 @@ class Handler(BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         p = u.path
         try:
+            if p.startswith("/api/humanize/"):
+                db.delete_humanize(int(p.strip("/").split("/")[2]))
+                return self._send(200, {"ok": True})
             if p.startswith("/api/articles/"):
                 db.delete_article(int(p.strip("/").split("/")[2]))
                 return self._send(200, {"ok": True})
