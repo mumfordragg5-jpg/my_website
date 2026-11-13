@@ -1,8 +1,8 @@
 {
-  "update_time": "2026-11-12 02:37:40",
+  "update_time": "2026-11-13 02:17:56",
   "vix": {
-    "price": 17.49,
-    "change_pct": -10.12,
+    "price": 18.7,
+    "change_pct": 6.92,
     "is_panic": false
   },
   "signals": {
